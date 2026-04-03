@@ -39,6 +39,9 @@ public class GameController : MonoBehaviour
     private int currentLevelIndex;
     private LevelData currentLevelData;
 
+    // Thêm field
+    private int lastAdvanceFrame = -1;
+
     private void Awake()
     {
         if (swipeInputReader == null)
@@ -106,10 +109,19 @@ public class GameController : MonoBehaviour
         UpdateLevelLabel();
         RebuildBoard();
         RefreshDynamicViews();
+
+        UpdateBackButtonState();
     }
 
     public void LoadNextLevel()
     {
+        if (Time.frameCount == lastAdvanceFrame)
+        {
+            return;
+        }
+
+        lastAdvanceFrame = Time.frameCount;
+
         if (!HasNextLevel())
         {
             Debug.Log("No next level available.");
@@ -134,6 +146,7 @@ public class GameController : MonoBehaviour
         }
 
         moveHistory.Push(moveResult);
+        UpdateBackButtonState();
 
         if (moveResult.pushedBox)
         {
@@ -172,10 +185,17 @@ public class GameController : MonoBehaviour
         if (lastMove.pushedBox)
         {
             gridState.MoveBox(lastMove.currentBoxPosition, lastMove.previousBoxPosition);
-            Transform movedBox = boxViews[lastMove.currentBoxPosition];
-            boxViews.Remove(lastMove.currentBoxPosition);
-            boxViews[lastMove.previousBoxPosition] = movedBox;
-            movedBox.position = GridToWorld(lastMove.previousBoxPosition);
+
+            if (boxViews.TryGetValue(lastMove.currentBoxPosition, out Transform movedBox))
+            {
+                boxViews.Remove(lastMove.currentBoxPosition);
+                boxViews[lastMove.previousBoxPosition] = movedBox;
+                movedBox.position = GridToWorld(lastMove.previousBoxPosition);
+            }
+            else
+            {
+                RebuildBoard();
+            }
         }
 
         gridState.MovePlayer(lastMove.previousPlayerPosition);
@@ -187,6 +207,8 @@ public class GameController : MonoBehaviour
         completed = WinChecker.IsLevelComplete(gridState);
         SetNextLevelButtonVisible(completed && HasNextLevel());
         SetBackButtonVisible(!completed);
+
+        UpdateBackButtonState();
     }
 
     private void RebuildBoard()
@@ -293,6 +315,17 @@ public class GameController : MonoBehaviour
 
         backButton.gameObject.SetActive(visible);
         backButton.interactable = visible;
+    }
+
+    private void UpdateBackButtonState()
+    {
+        if (backButton == null)
+        {
+            return;
+        }
+
+        bool canUndo = moveHistory.Count > 0;
+        backButton.interactable = canUndo;
     }
 
     private void HandleNextLevelButtonClicked()
