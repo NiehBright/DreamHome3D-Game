@@ -14,6 +14,7 @@ public class GameController : MonoBehaviour
     [Header("UI")]
     [SerializeField] private TMP_Text levelText;
     [SerializeField] private Button nextLevelButton;
+    [SerializeField] private Button backButton;
 
     [Header("Prefabs")]
     [SerializeField] private GameObject floorPrefab;
@@ -30,6 +31,7 @@ public class GameController : MonoBehaviour
 
     private GridState gridState;
     private readonly Dictionary<Vector2Int, Transform> boxViews = new Dictionary<Vector2Int, Transform>();
+    private readonly Stack<MovementResolver.MoveResult> moveHistory = new Stack<MovementResolver.MoveResult>();
     private Transform playerView;
     private Transform boardRoot;
     private bool completed;
@@ -50,11 +52,16 @@ public class GameController : MonoBehaviour
         if (swipeInputReader != null)
         {
             swipeInputReader.OnSwipe += HandleSwipe;
-        }                                                                                                   
+        }
 
         if (nextLevelButton != null)
         {
             nextLevelButton.onClick.AddListener(HandleNextLevelButtonClicked);
+        }
+
+        if (backButton != null)
+        {
+            backButton.onClick.AddListener(HandleBackButtonClicked);
         }
     }
 
@@ -68,6 +75,11 @@ public class GameController : MonoBehaviour
         if (nextLevelButton != null)
         {
             nextLevelButton.onClick.RemoveListener(HandleNextLevelButtonClicked);
+        }
+
+        if (backButton != null)
+        {
+            backButton.onClick.RemoveListener(HandleBackButtonClicked);
         }
     }
 
@@ -87,6 +99,8 @@ public class GameController : MonoBehaviour
 
         completed = false;
         gridState = LevelLoader.Load(currentLevelData);
+        moveHistory.Clear();
+        SetBackButtonVisible(true);
 
         SetNextLevelButtonVisible(false);
         UpdateLevelLabel();
@@ -119,6 +133,8 @@ public class GameController : MonoBehaviour
             return;
         }
 
+        moveHistory.Push(moveResult);
+
         if (moveResult.pushedBox)
         {
             Transform movedBox = boxViews[moveResult.previousBoxPosition];
@@ -135,7 +151,42 @@ public class GameController : MonoBehaviour
             Debug.Log("Level completed.");
             onLevelCompleted?.Invoke();
             SetNextLevelButtonVisible(HasNextLevel());
+            SetBackButtonVisible(false);
         }
+    }
+
+    private void HandleBackButtonClicked()
+    {
+        UndoLastMove();
+    }
+
+    private void UndoLastMove()
+    {
+        if (moveHistory.Count == 0 || gridState == null)
+        {
+            return;
+        }
+
+        MovementResolver.MoveResult lastMove = moveHistory.Pop();
+
+        if (lastMove.pushedBox)
+        {
+            gridState.MoveBox(lastMove.currentBoxPosition, lastMove.previousBoxPosition);
+            Transform movedBox = boxViews[lastMove.currentBoxPosition];
+            boxViews.Remove(lastMove.currentBoxPosition);
+            boxViews[lastMove.previousBoxPosition] = movedBox;
+            movedBox.position = GridToWorld(lastMove.previousBoxPosition);
+        }
+
+        gridState.MovePlayer(lastMove.previousPlayerPosition);
+        if (playerView != null)
+        {
+            playerView.position = GridToWorld(lastMove.previousPlayerPosition);
+        }
+
+        completed = WinChecker.IsLevelComplete(gridState);
+        SetNextLevelButtonVisible(completed && HasNextLevel());
+        SetBackButtonVisible(!completed);
     }
 
     private void RebuildBoard()
@@ -231,6 +282,17 @@ public class GameController : MonoBehaviour
 
         nextLevelButton.gameObject.SetActive(visible);
         nextLevelButton.interactable = visible;
+    }
+
+    private void SetBackButtonVisible(bool visible)
+    {
+        if (backButton == null)
+        {
+            return;
+        }
+
+        backButton.gameObject.SetActive(visible);
+        backButton.interactable = visible;
     }
 
     private void HandleNextLevelButtonClicked()
