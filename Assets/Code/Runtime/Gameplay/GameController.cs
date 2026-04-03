@@ -1,12 +1,19 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI;
 
 public class GameController : MonoBehaviour
 {
     [Header("Level")]
-    [SerializeField] private LevelData levelData;
+    [SerializeField] private LevelListData levelListData;
+    [SerializeField, Min(0)] private int startingLevelIndex;
     [SerializeField] private SwipeInputReader swipeInputReader;
+
+    [Header("UI")]
+    [SerializeField] private TMP_Text levelText;
+    [SerializeField] private Button nextLevelButton;
 
     [Header("Prefabs")]
     [SerializeField] private GameObject floorPrefab;
@@ -27,6 +34,9 @@ public class GameController : MonoBehaviour
     private Transform boardRoot;
     private bool completed;
 
+    private int currentLevelIndex;
+    private LevelData currentLevelData;
+
     private void Awake()
     {
         if (swipeInputReader == null)
@@ -40,6 +50,11 @@ public class GameController : MonoBehaviour
         if (swipeInputReader != null)
         {
             swipeInputReader.OnSwipe += HandleSwipe;
+        }                                                                                                   
+
+        if (nextLevelButton != null)
+        {
+            nextLevelButton.onClick.AddListener(HandleNextLevelButtonClicked);
         }
     }
 
@@ -49,26 +64,46 @@ public class GameController : MonoBehaviour
         {
             swipeInputReader.OnSwipe -= HandleSwipe;
         }
+
+        if (nextLevelButton != null)
+        {
+            nextLevelButton.onClick.RemoveListener(HandleNextLevelButtonClicked);
+        }
     }
 
     private void Start()
     {
+        currentLevelIndex = Mathf.Max(0, startingLevelIndex);
         LoadLevel();
     }
 
     public void LoadLevel()
     {
-        if (levelData == null)
+        if (levelListData == null || !levelListData.TryGetLevel(currentLevelIndex, out currentLevelData))
         {
-            Debug.LogWarning("GameController missing LevelData reference.");
+            Debug.LogWarning("GameController missing LevelListData or level index is invalid.");
             return;
         }
 
         completed = false;
-        gridState = LevelLoader.Load(levelData);
+        gridState = LevelLoader.Load(currentLevelData);
 
+        SetNextLevelButtonVisible(false);
+        UpdateLevelLabel();
         RebuildBoard();
         RefreshDynamicViews();
+    }
+
+    public void LoadNextLevel()
+    {
+        if (!HasNextLevel())
+        {
+            Debug.Log("No next level available.");
+            return;
+        }
+
+        currentLevelIndex++;
+        LoadLevel();
     }
 
     private void HandleSwipe(Vector2Int direction)
@@ -99,6 +134,7 @@ public class GameController : MonoBehaviour
             completed = true;
             Debug.Log("Level completed.");
             onLevelCompleted?.Invoke();
+            SetNextLevelButtonVisible(HasNextLevel());
         }
     }
 
@@ -115,40 +151,38 @@ public class GameController : MonoBehaviour
         boardRoot = new GameObject("BoardRoot").transform;
         boardRoot.SetParent(transform, false);
 
-        for (int y = 0; y < levelData.Height; y++)
+        for (int y = 0; y < currentLevelData.Height; y++)
         {
-            for (int x = 0; x < levelData.Width; x++)
+            for (int x = 0; x < currentLevelData.Width; x++)
             {
                 Vector2Int position = new Vector2Int(x, y);
-                CellData cell = levelData.GetCell(x, y);
-                Vector3 worldPosition = GridToWorld(position);
-
-                SpawnIfAssigned(floorPrefab, worldPosition, "Floor", boardRoot);
+                CellData cell = currentLevelData.GetCell(x, y);
 
                 if (cell.tileType == TileType.Wall)
                 {
-                    SpawnIfAssigned(wallPrefab, worldPosition, "Wall", boardRoot);
+                    continue;
                 }
-                else
+
+                Vector3 worldPosition = GridToWorld(position);
+                SpawnIfAssigned(floorPrefab, worldPosition, "Floor", boardRoot);
+
+                if (cell.isGoal)
                 {
-                    if (cell.isGoal)
-                    {
-                        SpawnIfAssigned(goalPrefab, worldPosition, "Goal", boardRoot);
-                    }
+                    SpawnIfAssigned(goalPrefab, worldPosition, "Goal", boardRoot);
+                }
 
-                    if (cell.hasBox)
+                if (cell.hasBox)
+                {
+                    Transform box = SpawnIfAssigned(boxPrefab, worldPosition, "Box", boardRoot);
+                    if (box != null)
                     {
-                        Transform box = SpawnIfAssigned(boxPrefab, worldPosition, "Box", boardRoot);
-                        if (box != null)
-                        {
-                            boxViews[position] = box;
-                        }
+                        boxViews[position] = box;
                     }
+                }
 
-                    if (cell.hasPlayerStart)
-                    {
-                        playerView = SpawnIfAssigned(playerPrefab, worldPosition, "Player", boardRoot);
-                    }
+                if (cell.hasPlayerStart)
+                {
+                    playerView = SpawnIfAssigned(playerPrefab, worldPosition, "Player", boardRoot);
                 }
             }
         }
@@ -170,6 +204,38 @@ public class GameController : MonoBehaviour
         {
             pair.Value.position = GridToWorld(pair.Key);
         }
+    }
+
+    private void UpdateLevelLabel()
+    {
+        if (levelText == null)
+        {
+            return;
+        }
+
+        levelText.text = $"Level {currentLevelIndex + 1}";
+        levelText.gameObject.SetActive(true);
+    }
+
+    private bool HasNextLevel()
+    {
+        return levelListData != null && currentLevelIndex + 1 < levelListData.Count;
+    }
+
+    private void SetNextLevelButtonVisible(bool visible)
+    {
+        if (nextLevelButton == null)
+        {
+            return;
+        }
+
+        nextLevelButton.gameObject.SetActive(visible);
+        nextLevelButton.interactable = visible;
+    }
+
+    private void HandleNextLevelButtonClicked()
+    {
+        LoadNextLevel();
     }
 
     private Transform SpawnIfAssigned(GameObject prefab, Vector3 worldPosition, string fallbackName, Transform parent)
