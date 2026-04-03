@@ -847,7 +847,8 @@ MonoBehaviour:
   nextLevelButton: {fileID: 1837324430}
   backButton: {fileID: 1183304816}
   resetButton: {fileID: 1021841036}
-  floorPrefab: {fileID: 5540559970561114135, guid: 3c5e46bd1128a184ab7bf322ec70d8c5, type: 3}
+  floorLightPrefab: {fileID: 5540559970561114135, guid: 3c5e46bd1128a184ab7bf322ec70d8c5, type: 3}
+  floorDarkPrefab: {fileID: 5540559970561114135, guid: a70e6da48b04a8340b2865f9346017fd, type: 3}
   wallPrefab: {fileID: 2379847625911277331, guid: d5850df7c50bde64389429cb37a33309, type: 3}
   goalPrefab: {fileID: 2972527890805358762, guid: 44f680cefe5cc6d49b394d5e3190af5d, type: 3}
   boxPrefab: {fileID: 2972527890805358762, guid: 7dfa3c840d33c504db03408a81b537c3, type: 3}
