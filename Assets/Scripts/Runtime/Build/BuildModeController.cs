@@ -7,6 +7,9 @@ namespace Runtime.Build
 {
     public class BuildModeController : MonoBehaviour
     {
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
+
         [Header("References")]
         [SerializeField] private Camera buildCamera;
         [SerializeField] private Transform buildRoot;
@@ -28,6 +31,18 @@ namespace Runtime.Build
         [SerializeField] private float placedYOffset = 0f;
         [SerializeField, Range(0f, 1f)] private float deleteRefundRate = 0.5f;
 
+        [Header("Camera Pan")]
+        [SerializeField] private bool enableCameraPan = true;
+        [SerializeField, Min(1f)] private float tapMaxMovementPixels = 14f;
+        [SerializeField, Min(0.01f)] private float tapMaxDurationSeconds = 0.25f;
+
+        [Header("Grid Visual")]
+        [SerializeField] private bool showGridOverlay = true;
+        [SerializeField] private Color gridLightColor = new Color(1f, 1f, 1f, 0.2f);
+        [SerializeField] private Color gridDarkColor = new Color(0.8f, 0.8f, 0.8f, 0.2f);
+        [SerializeField] private float gridVisualYOffset = 0.01f;
+        [SerializeField] private Material gridMaterial;
+
         [Header("Save")]
         [SerializeField] private bool autoSave = true;
         [SerializeField] private string saveKey = "dreamhome_build_mvp";
@@ -39,6 +54,15 @@ namespace Runtime.Build
         private PreviewState activePreview;
         private string selectedPlacementId;
         private bool isBuildActive;
+        private bool isDeleteMode;
+        private Transform gridVisualRoot;
+        private Material runtimeGridLightMaterial;
+        private Material runtimeGridDarkMaterial;
+        private bool pointerIsDown;
+        private bool pointerMovedAsDrag;
+        private Vector2 pointerDownScreenPosition;
+        private Vector2 pointerLastScreenPosition;
+        private float pointerDownTime;
 
         private class RuntimePlacement
         {
@@ -66,7 +90,23 @@ namespace Runtime.Build
         }
 
         CreateGridState();
+        BuildGridVisual();
         LoadFromSave();
+    }
+
+        private void OnDestroy()
+        {
+        ClearGridVisual();
+
+        if (runtimeGridLightMaterial != null)
+        {
+            Destroy(runtimeGridLightMaterial);
+        }
+
+        if (runtimeGridDarkMaterial != null)
+        {
+            Destroy(runtimeGridDarkMaterial);
+        }
     }
 
         private void Update()
@@ -76,26 +116,97 @@ namespace Runtime.Build
             return;
         }
 
-        if (!TryGetPointerState(out Vector2 pointerScreenPosition, out bool pressedThisFrame, out bool releasedThisFrame))
+        if (Keyboard.current != null && Keyboard.current.deleteKey.wasPressedThisFrame)
         {
-            return;
+            ToggleDeleteMode();
         }
 
-        if (activePreview != null)
+        if (!TryGetPointerState(out Vector2 pointerScreenPosition, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed))
         {
-            UpdatePreviewPosition(pointerScreenPosition);
-
-            if (releasedThisFrame)
-            {
-                TryCommitPreview();
-            }
-
             return;
         }
 
         if (pressedThisFrame)
         {
-            HandlePlacementOrSelection(pointerScreenPosition);
+            pointerIsDown = true;
+            pointerMovedAsDrag = false;
+            pointerDownScreenPosition = pointerScreenPosition;
+            pointerLastScreenPosition = pointerScreenPosition;
+            pointerDownTime = Time.unscaledTime;
+        }
+
+        if (pointerIsDown && isPressed)
+        {
+            if (!pointerMovedAsDrag)
+            {
+                float tapMoveThresholdSqr = tapMaxMovementPixels * tapMaxMovementPixels;
+                pointerMovedAsDrag = (pointerScreenPosition - pointerDownScreenPosition).sqrMagnitude > tapMoveThresholdSqr;
+            }
+
+            if (pointerMovedAsDrag && enableCameraPan)
+            {
+                PanCamera(pointerLastScreenPosition, pointerScreenPosition);
+            }
+
+            pointerLastScreenPosition = pointerScreenPosition;
+        }
+
+        if (!releasedThisFrame)
+        {
+            return;
+        }
+
+        bool isTap = pointerIsDown
+            && !pointerMovedAsDrag
+            && Time.unscaledTime - pointerDownTime <= tapMaxDurationSeconds;
+
+        pointerIsDown = false;
+
+        if (!isTap)
+        {
+            return;
+        }
+
+        HandleTap(pointerScreenPosition);
+    }
+
+        private void HandleTap(Vector2 pointerScreenPosition)
+        {
+        if (!TryGetGridCell(pointerScreenPosition, out Vector2Int cell))
+        {
+            return;
+        }
+
+        if (isDeleteMode)
+        {
+            if (gridState.TryGetPlacementAtCell(cell, out string deletePlacementId))
+            {
+                RemovePlacement(deletePlacementId, true);
+                SaveIfNeeded();
+            }
+
+            return;
+        }
+
+        if (activePreview != null)
+        {
+            activePreview.origin = cell;
+            ApplyPreviewTransform();
+            TryCommitPreview();
+            return;
+        }
+
+        if (gridState.TryGetPlacementAtCell(cell, out string placementId))
+        {
+            selectedPlacementId = placementId;
+            BeginMovePlacement(placementId);
+            return;
+        }
+
+        if (selectedItem != null)
+        {
+            BeginNewPlacement(selectedItem, cell);
+            TryCommitPreview();
         }
     }
 
@@ -103,10 +214,16 @@ namespace Runtime.Build
         {
         isBuildActive = active;
 
+        if (gridVisualRoot != null)
+        {
+            gridVisualRoot.gameObject.SetActive(active);
+        }
+
         if (!active)
         {
             CancelPlacement();
             selectedPlacementId = null;
+            isDeleteMode = false;
         }
     }
 
@@ -125,6 +242,7 @@ namespace Runtime.Build
         {
         selectedItem = item;
         selectedPlacementId = null;
+        isDeleteMode = false;
     }
 
         public void RotatePreview()
@@ -158,34 +276,59 @@ namespace Runtime.Build
 
         public void DeleteSelected()
         {
-        if (string.IsNullOrEmpty(selectedPlacementId))
-        {
-            return;
-        }
-
-        RemovePlacement(selectedPlacementId, true);
-        selectedPlacementId = null;
-        SaveIfNeeded();
+        ToggleDeleteMode();
     }
 
-        private void HandlePlacementOrSelection(Vector2 pointerScreenPosition)
+        public void ToggleDeleteMode()
         {
-        if (!TryGetGridCell(pointerScreenPosition, out Vector2Int cell))
+        isDeleteMode = !isDeleteMode;
+
+        if (isDeleteMode)
+        {
+            CancelPlacement();
+            selectedPlacementId = null;
+        }
+
+        Debug.Log(isDeleteMode
+            ? "Delete mode ON: tap furniture to delete."
+            : "Delete mode OFF.");
+    }
+
+        private void PanCamera(Vector2 fromScreenPosition, Vector2 toScreenPosition)
+        {
+        if (buildCamera == null)
         {
             return;
         }
 
-        if (gridState.TryGetPlacementAtCell(cell, out string placementId))
+        if (!TryScreenToGroundPoint(fromScreenPosition, out Vector3 fromWorld)
+            || !TryScreenToGroundPoint(toScreenPosition, out Vector3 toWorld))
         {
-            selectedPlacementId = placementId;
-            BeginMovePlacement(placementId);
             return;
         }
 
-        if (selectedItem != null)
+        Vector3 delta = toWorld - fromWorld;
+        buildCamera.transform.position += new Vector3(delta.x, 0f, delta.z);
+    }
+
+        private bool TryScreenToGroundPoint(Vector2 screenPosition, out Vector3 worldPoint)
         {
-            BeginNewPlacement(selectedItem, cell);
+        worldPoint = default;
+
+        if (buildCamera == null)
+        {
+            return false;
         }
+
+        Plane plane = new Plane(Vector3.up, new Vector3(0f, gridOrigin.y, 0f));
+        Ray ray = buildCamera.ScreenPointToRay(screenPosition);
+        if (!plane.Raycast(ray, out float distance))
+        {
+            return false;
+        }
+
+        worldPoint = ray.GetPoint(distance);
+        return true;
     }
 
         private void BeginNewPlacement(FurnitureItemData item, Vector2Int origin)
@@ -496,11 +639,12 @@ namespace Runtime.Build
         return true;
     }
 
-        private static bool TryGetPointerState(out Vector2 position, out bool pressedThisFrame, out bool releasedThisFrame)
+        private static bool TryGetPointerState(out Vector2 position, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed)
         {
         position = default;
         pressedThisFrame = false;
         releasedThisFrame = false;
+        isPressed = false;
 
         if (Touchscreen.current != null)
         {
@@ -508,6 +652,7 @@ namespace Runtime.Build
             position = touch.position.ReadValue();
             pressedThisFrame = touch.press.wasPressedThisFrame;
             releasedThisFrame = touch.press.wasReleasedThisFrame;
+            isPressed = touch.press.isPressed;
             return true;
         }
 
@@ -516,6 +661,7 @@ namespace Runtime.Build
             position = Mouse.current.position.ReadValue();
             pressedThisFrame = Mouse.current.leftButton.wasPressedThisFrame;
             releasedThisFrame = Mouse.current.leftButton.wasReleasedThisFrame;
+            isPressed = Mouse.current.leftButton.isPressed;
             return true;
         }
 
@@ -540,6 +686,94 @@ namespace Runtime.Build
             }
             renderers[i].SetPropertyBlock(block);
         }
+    }
+
+        private void BuildGridVisual()
+        {
+        ClearGridVisual();
+
+        if (!showGridOverlay)
+        {
+            return;
+        }
+
+        runtimeGridLightMaterial = CreateGridMaterial(gridLightColor);
+        runtimeGridDarkMaterial = CreateGridMaterial(gridDarkColor);
+
+        gridVisualRoot = new GameObject("BuildGridOverlay").transform;
+        gridVisualRoot.SetParent(buildRoot != null ? buildRoot : transform, false);
+        gridVisualRoot.gameObject.SetActive(isBuildActive);
+
+        for (int y = 0; y < gridHeight; y++)
+        {
+            for (int x = 0; x < gridWidth; x++)
+            {
+                GameObject tile = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                tile.name = $"Cell_{x}_{y}";
+                tile.transform.SetParent(gridVisualRoot, false);
+                tile.transform.position = gridOrigin + new Vector3(x * cellSize, gridVisualYOffset, y * cellSize);
+                tile.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                tile.transform.localScale = new Vector3(cellSize, cellSize, 1f);
+
+                Renderer renderer = tile.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    bool useLight = ((x + y) & 1) == 0;
+                    renderer.sharedMaterial = useLight ? runtimeGridLightMaterial : runtimeGridDarkMaterial;
+                }
+
+                Collider collider = tile.GetComponent<Collider>();
+                if (collider != null)
+                {
+                    Destroy(collider);
+                }
+            }
+        }
+    }
+
+        private void ClearGridVisual()
+        {
+        if (gridVisualRoot != null)
+        {
+            Destroy(gridVisualRoot.gameObject);
+            gridVisualRoot = null;
+        }
+    }
+
+        private Material CreateGridMaterial(Color color)
+        {
+        Material material;
+
+        if (gridMaterial != null)
+        {
+            material = new Material(gridMaterial);
+        }
+        else
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null)
+            {
+                shader = Shader.Find("Unlit/Color");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Standard");
+            }
+
+            material = new Material(shader);
+        }
+
+        if (material.HasProperty(BaseColorId))
+        {
+            material.SetColor(BaseColorId, color);
+        }
+        else if (material.HasProperty(ColorId))
+        {
+            material.SetColor(ColorId, color);
+        }
+
+        return material;
     }
 }
 }

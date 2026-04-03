@@ -15,19 +15,37 @@
 ## 3) Chuyen mode Puzzle <-> Build
 1. Tao GameObject `ModeController`.
 2. Add component `ModeController`.
-3. Gan `Puzzle Root`, `Build Root`, `Build Mode Controller`.
+3. Gan `Puzzle Root`, `Build Root`, `Puzzle Camera`, `Build Camera`, `Build Mode Controller`.
 4. UI nut `Build` -> goi `ModeController.EnterBuildMode()`.
 5. UI nut `Exit` -> goi `ModeController.EnterPuzzleMode()`.
+
+## 3.1) Setup 2 camera
+- `Puzzle Camera`: camera danh cho gameplay puzzle.
+- `Build Camera`: camera danh cho build mode (goc tu tren xuong).
+- Goi y top-down:
+  - Position: `(centerX, 12, centerY)`
+  - Rotation: `(90, 0, 0)`
+  - Projection: `Orthographic` (de canh grid de nhin)
+  - Orthographic Size: tang/giam theo kich thuoc phong.
+- Khi doi mode, `ModeController` se tu bat/tat dung camera.
 
 ## 4) Hook UI Build
 - Shop item button -> goi `BuildModeController.SelectFurnitureById(string id)`.
 - Nut `Rotate` -> goi `BuildModeController.RotatePreview()`.
 - Nut `Cancel` -> goi `BuildModeController.CancelPlacement()`.
-- Nut `Delete` -> goi `BuildModeController.DeleteSelected()`.
+- Nut `Delete` -> goi `BuildModeController.DeleteSelected()` (nut nay bat/tat Delete Mode).
 
 ## 5) Input
-- Mobile: drag/touch de di chuyen preview, nha tay de dat.
-- Editor: giu chuot trai va keo de dat.
+- Mobile: an giu + truot de pan camera theo huong tay.
+- Editor: giu chuot trai + keo de pan camera.
+- Dat vat chi bang thao tac tap/nhan nhanh (khong dat khi dang drag).
+- Khi Delete Mode dang bat: cham vao vat nao thi vat do bi xoa ngay.
+
+## 5.1) Hien luoi caro 1x1
+- Trong `BuildModeController`, bat `Show Grid Overlay`.
+- Chinh mau o qua `Grid Light Color` va `Grid Dark Color`.
+- `Grid Visual Y Offset` dung de nang luoi len 1 chut tranh z-fighting.
+- Neu can shader rieng, gan vao `Grid Material`.
 
 ## 6) Save/Load
 - Tu dong save vao `PlayerPrefs` theo `Save Key` trong `BuildModeController`.

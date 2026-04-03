@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: db263d37f51e49b08f785ec093e44a7c, type: 3}
-  m_Name: Chair
+  m_Name: chair_02
   m_EditorClassIdentifier: Assembly-CSharp::Runtime.Build.FurnitureItemData
-  itemId: chair_01
+  itemId: chair_02
   displayName: Chair
   size: {x: 1, y: 1}
   canRotate: 1
   price: 100
-  prefab: {fileID: 0}
+  prefab: {fileID: 8328837259661745433, guid: ff105ebf6dbf18b4f8330ea0536a5cc1, type: 3}

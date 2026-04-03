@@ -12,6 +12,8 @@ namespace Runtime.Build
     {
         [SerializeField] private GameObject puzzleRoot;
         [SerializeField] private GameObject buildRoot;
+        [SerializeField] private Camera puzzleCamera;
+        [SerializeField] private Camera buildCamera;
         [SerializeField] private BuildModeController buildModeController;
 
         public GameMode CurrentMode { get; private set; } = GameMode.Puzzle;
@@ -59,6 +61,16 @@ namespace Runtime.Build
             if (buildModeController != null)
             {
                 buildModeController.SetBuildActive(isBuild);
+            }
+
+            if (puzzleCamera != null)
+            {
+                puzzleCamera.gameObject.SetActive(!isBuild);
+            }
+
+            if (buildCamera != null)
+            {
+                buildCamera.gameObject.SetActive(isBuild);
             }
         }
     }
