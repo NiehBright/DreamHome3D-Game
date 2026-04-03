@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fb244591c2664580bb389564309bed9d, type: 3}
-  m_Name: Level_01
+  m_Name: Level_03
   m_EditorClassIdentifier: Assembly-CSharp::LevelData
   width: 5
   height: 5
@@ -35,23 +35,11 @@ MonoBehaviour:
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
-  - tileType: 0
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 0
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 0
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
   - tileType: 1
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
-  - tileType: 1
+  - tileType: 0
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
@@ -59,6 +47,22 @@ MonoBehaviour:
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 1
+  - tileType: 0
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasBox: 1
+    isGoal: 0
+    hasPlayerStart: 0
   - tileType: 0
     hasBox: 0
     isGoal: 0
@@ -73,45 +77,41 @@ MonoBehaviour:
     hasPlayerStart: 0
   - tileType: 0
     hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasBox: 0
     isGoal: 1
     hasPlayerStart: 0
+  - tileType: 1
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasBox: 0
+    isGoal: 0
+    hasPlayerStart: 0
   - tileType: 0
     hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 0
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 0
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 1
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 1
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 1
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 1
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 1
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 1
-    hasBox: 0
-    isGoal: 0
-    hasPlayerStart: 0
-  - tileType: 1
-    hasBox: 0
-    isGoal: 0
+    isGoal: 1
     hasPlayerStart: 0
