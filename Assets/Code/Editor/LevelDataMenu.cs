@@ -28,12 +28,6 @@ public static class LevelDataMenu
             }
         }
 
-        // Simple solvable setup:
-        // #####
-        // # . #
-        // # B #
-        // # P #
-        // #####
         SetGoal(levelData, 2, 3);
         SetBox(levelData, 2, 2);
         SetPlayer(levelData, 2, 1);

@@ -19,7 +19,7 @@ MonoBehaviour:
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
-  - tileType: 0
+  - tileType: 1
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
@@ -39,7 +39,7 @@ MonoBehaviour:
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
-  - tileType: 0
+  - tileType: 1
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
@@ -59,7 +59,7 @@ MonoBehaviour:
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
-  - tileType: 0
+  - tileType: 1
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
