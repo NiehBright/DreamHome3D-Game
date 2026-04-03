@@ -15,9 +15,11 @@ public class GameController : MonoBehaviour
     [SerializeField] private TMP_Text levelText;
     [SerializeField] private Button nextLevelButton;
     [SerializeField] private Button backButton;
+    [SerializeField] private Button resetButton;
 
     [Header("Prefabs")]
-    [SerializeField] private GameObject floorPrefab;
+    [SerializeField] private GameObject floorLightPrefab;
+    [SerializeField] private GameObject floorDarkPrefab;
     [SerializeField] private GameObject wallPrefab;
     [SerializeField] private GameObject goalPrefab;
     [SerializeField] private GameObject boxPrefab;
@@ -39,7 +41,6 @@ public class GameController : MonoBehaviour
     private int currentLevelIndex;
     private LevelData currentLevelData;
 
-    // Thêm field
     private int lastAdvanceFrame = -1;
 
     private void Awake()
@@ -66,6 +67,11 @@ public class GameController : MonoBehaviour
         {
             backButton.onClick.AddListener(HandleBackButtonClicked);
         }
+
+        if (resetButton != null)
+        {
+            resetButton.onClick.AddListener(HandleResetButtonClicked);
+        }
     }
 
     private void OnDisable()
@@ -83,6 +89,11 @@ public class GameController : MonoBehaviour
         if (backButton != null)
         {
             backButton.onClick.RemoveListener(HandleBackButtonClicked);
+        }
+
+        if (resetButton != null)
+        {
+            resetButton.onClick.RemoveListener(HandleResetButtonClicked);
         }
     }
 
@@ -104,7 +115,8 @@ public class GameController : MonoBehaviour
         gridState = LevelLoader.Load(currentLevelData);
         moveHistory.Clear();
         SetBackButtonVisible(true);
-
+        SetResetButtonVisible(true);
+SetNextLevelButtonVisible(true);
         SetNextLevelButtonVisible(false);
         UpdateLevelLabel();
         RebuildBoard();
@@ -165,12 +177,18 @@ public class GameController : MonoBehaviour
             onLevelCompleted?.Invoke();
             SetNextLevelButtonVisible(HasNextLevel());
             SetBackButtonVisible(false);
+            SetResetButtonVisible(false);
         }
     }
 
     private void HandleBackButtonClicked()
     {
         UndoLastMove();
+    }
+
+    private void HandleResetButtonClicked()
+    {
+        LoadLevel();
     }
 
     private void UndoLastMove()
@@ -207,6 +225,7 @@ public class GameController : MonoBehaviour
         completed = WinChecker.IsLevelComplete(gridState);
         SetNextLevelButtonVisible(completed && HasNextLevel());
         SetBackButtonVisible(!completed);
+        SetResetButtonVisible(!completed);
 
         UpdateBackButtonState();
     }
@@ -237,7 +256,8 @@ public class GameController : MonoBehaviour
                 }
 
                 Vector3 worldPosition = GridToWorld(position);
-                SpawnIfAssigned(floorPrefab, worldPosition, "Floor", boardRoot);
+                GameObject floorPrefabToUse = ((position.x + position.y) % 2 == 0) ? floorLightPrefab : floorDarkPrefab;
+                SpawnIfAssigned(floorPrefabToUse, worldPosition, "Floor", boardRoot);
 
                 if (cell.isGoal)
                 {
@@ -348,6 +368,17 @@ public class GameController : MonoBehaviour
     private Vector3 GridToWorld(Vector2Int gridPosition)
     {
         return new Vector3(gridPosition.x * cellSize, 0f, gridPosition.y * cellSize);
+    }
+
+    private void SetResetButtonVisible(bool visible)
+    {
+        if (resetButton == null)
+        {
+            return;
+        }
+
+        resetButton.gameObject.SetActive(visible);
+        resetButton.interactable = visible;
     }
 }
 
