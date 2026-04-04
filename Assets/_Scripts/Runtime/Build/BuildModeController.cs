@@ -58,6 +58,7 @@ namespace Runtime.Build
         private Transform gridVisualRoot;
         private Material runtimeGridLightMaterial;
         private Material runtimeGridDarkMaterial;
+        private bool gridVisible = true;
         private bool pointerIsDown;
         private bool pointerMovedAsDrag;
         private Vector2 pointerDownScreenPosition;
@@ -91,6 +92,7 @@ namespace Runtime.Build
 
         CreateGridState();
         BuildGridVisual();
+        ApplyGridVisibility();
         LoadFromSave();
     }
 
@@ -214,17 +216,19 @@ namespace Runtime.Build
         {
         isBuildActive = active;
 
-        if (gridVisualRoot != null)
-        {
-            gridVisualRoot.gameObject.SetActive(active);
-        }
-
         if (!active)
         {
             CancelPlacement();
             selectedPlacementId = null;
-            isDeleteMode = false;
         }
+
+        ApplyGridVisibility();
+    }
+
+        public void SetGridVisible(bool visible)
+        {
+        gridVisible = visible;
+        ApplyGridVisibility();
     }
 
         public void SelectFurnitureById(string itemId)
@@ -258,6 +262,8 @@ namespace Runtime.Build
 
         public void CancelPlacement()
         {
+        isDeleteMode = false;
+
         if (activePreview == null)
         {
             return;
@@ -276,22 +282,47 @@ namespace Runtime.Build
 
         public void DeleteSelected()
         {
-        ToggleDeleteMode();
+        EnableDeleteMode();
+    }
+
+        public void EnableDeleteMode()
+        {
+        isDeleteMode = true;
+        CancelPlacement();
+        selectedPlacementId = null;
+        Debug.Log("Delete mode ON: tap furniture to delete.");
+    }
+
+        public void DisableDeleteMode()
+        {
+        isDeleteMode = false;
+        Debug.Log("Delete mode OFF.");
     }
 
         public void ToggleDeleteMode()
         {
-        isDeleteMode = !isDeleteMode;
+        SetDeleteMode(!isDeleteMode);
+    }
+
+        public void SetDeleteMode(bool enabled)
+        {
+        if (isDeleteMode == enabled)
+        {
+            return;
+        }
+
+        isDeleteMode = enabled;
 
         if (isDeleteMode)
         {
             CancelPlacement();
             selectedPlacementId = null;
+            Debug.Log("Delete mode ON: tap furniture to delete.");
         }
-
-        Debug.Log(isDeleteMode
-            ? "Delete mode ON: tap furniture to delete."
-            : "Delete mode OFF.");
+        else
+        {
+            Debug.Log("Delete mode OFF.");
+        }
     }
 
         private void PanCamera(Vector2 fromScreenPosition, Vector2 toScreenPosition)
@@ -434,7 +465,7 @@ namespace Runtime.Build
 
         Transform placedView = Instantiate(activePreview.item.Prefab, buildRoot != null ? buildRoot : transform).transform;
         placedView.position = GridToWorld(activePreview.origin, activePreview.item.Size, activePreview.rotationQuarterTurns, placedYOffset);
-        placedView.rotation = Quaternion.Euler(0f, activePreview.rotationQuarterTurns * 90f, 0f);
+        placedView.rotation = GetPlacementRotation(activePreview.item, activePreview.rotationQuarterTurns);
 
         runtimePlacements[placementId] = new RuntimePlacement
         {
@@ -455,7 +486,7 @@ namespace Runtime.Build
         runtimePlacement.data.rotationQuarterTurns = activePreview.rotationQuarterTurns;
 
         runtimePlacement.view.position = GridToWorld(activePreview.origin, runtimePlacement.item.Size, activePreview.rotationQuarterTurns, placedYOffset);
-        runtimePlacement.view.rotation = Quaternion.Euler(0f, activePreview.rotationQuarterTurns * 90f, 0f);
+        runtimePlacement.view.rotation = GetPlacementRotation(runtimePlacement.item, activePreview.rotationQuarterTurns);
         runtimePlacement.view.gameObject.SetActive(true);
 
         gridState.AddPlacement(runtimePlacement.data, runtimePlacement.item);
@@ -493,7 +524,7 @@ namespace Runtime.Build
             activePreview.item.Size,
             activePreview.rotationQuarterTurns,
             previewYOffset);
-        activePreview.view.rotation = Quaternion.Euler(0f, activePreview.rotationQuarterTurns * 90f, 0f);
+        activePreview.view.rotation = GetPlacementRotation(activePreview.item, activePreview.rotationQuarterTurns);
 
         SetPreviewVisual(activePreview.view, activePreview.isValid ? validPreviewColor : invalidPreviewColor);
     }
@@ -575,7 +606,7 @@ namespace Runtime.Build
 
             Transform view = Instantiate(item.Prefab, buildRoot != null ? buildRoot : transform).transform;
             view.position = GridToWorld(data.Origin, item.Size, data.rotationQuarterTurns, placedYOffset);
-            view.rotation = Quaternion.Euler(0f, data.rotationQuarterTurns * 90f, 0f);
+            view.rotation = GetPlacementRotation(item, data.rotationQuarterTurns);
 
             runtimePlacements[data.placementId] = new RuntimePlacement
             {
@@ -607,6 +638,13 @@ namespace Runtime.Build
         }
 
         BuildSaveService.Save(saveKey, data);
+    }
+
+        private Quaternion GetPlacementRotation(FurnitureItemData item, int rotationQuarterTurns)
+        {
+        float baseYaw = rotationQuarterTurns * 90f;
+        float offsetYaw = item != null ? item.VisualRotationOffsetDegrees : 0f;
+        return Quaternion.Euler(0f, baseYaw + offsetYaw, 0f);
     }
 
         private Vector3 GridToWorld(Vector2Int origin, Vector2Int itemSize, int rotationQuarterTurns, float yOffset)
@@ -702,7 +740,7 @@ namespace Runtime.Build
 
         gridVisualRoot = new GameObject("BuildGridOverlay").transform;
         gridVisualRoot.SetParent(buildRoot != null ? buildRoot : transform, false);
-        gridVisualRoot.gameObject.SetActive(isBuildActive);
+        gridVisualRoot.gameObject.SetActive(gridVisible);
 
         for (int y = 0; y < gridHeight; y++)
         {
@@ -737,6 +775,14 @@ namespace Runtime.Build
         {
             Destroy(gridVisualRoot.gameObject);
             gridVisualRoot = null;
+        }
+    }
+
+        private void ApplyGridVisibility()
+        {
+        if (gridVisualRoot != null)
+        {
+            gridVisualRoot.gameObject.SetActive(gridVisible);
         }
     }
 
@@ -776,4 +822,6 @@ namespace Runtime.Build
         return material;
     }
 }
+
 }
+

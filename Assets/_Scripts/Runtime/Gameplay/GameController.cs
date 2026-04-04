@@ -33,6 +33,7 @@ public class GameController : MonoBehaviour
 
     private GridState gridState;
     private readonly Dictionary<Vector2Int, Transform> boxViews = new Dictionary<Vector2Int, Transform>();
+    private readonly Dictionary<Vector2Int, Transform> goalViews = new Dictionary<Vector2Int, Transform>();
     private readonly Stack<MovementResolver.MoveResult> moveHistory = new Stack<MovementResolver.MoveResult>();
     private Transform playerView;
     private Transform boardRoot;
@@ -58,11 +59,6 @@ public class GameController : MonoBehaviour
             swipeInputReader.OnSwipe += HandleSwipe;
         }
 
-        if (nextLevelButton != null)
-        {
-            nextLevelButton.onClick.AddListener(HandleNextLevelButtonClicked);
-        }
-
         if (backButton != null)
         {
             backButton.onClick.AddListener(HandleBackButtonClicked);
@@ -81,10 +77,6 @@ public class GameController : MonoBehaviour
             swipeInputReader.OnSwipe -= HandleSwipe;
         }
 
-        if (nextLevelButton != null)
-        {
-            nextLevelButton.onClick.RemoveListener(HandleNextLevelButtonClicked);
-        }
 
         if (backButton != null)
         {
@@ -168,6 +160,7 @@ SetNextLevelButtonVisible(true);
             movedBox.position = GridToWorld(moveResult.currentBoxPosition);
         }
 
+        RefreshGoalViews();
         playerView.position = GridToWorld(moveResult.currentPlayerPosition);
 
         if (WinChecker.IsLevelComplete(gridState))
@@ -216,6 +209,8 @@ SetNextLevelButtonVisible(true);
             }
         }
 
+        RefreshGoalViews();
+
         gridState.MovePlayer(lastMove.previousPlayerPosition);
         if (playerView != null)
         {
@@ -238,6 +233,7 @@ SetNextLevelButtonVisible(true);
         }
 
         boxViews.Clear();
+        goalViews.Clear();
         playerView = null;
 
         boardRoot = new GameObject("BoardRoot").transform;
@@ -261,7 +257,11 @@ SetNextLevelButtonVisible(true);
 
                 if (cell.isGoal)
                 {
-                    SpawnIfAssigned(goalPrefab, worldPosition, "Goal", boardRoot);
+                    Transform goal = SpawnIfAssigned(goalPrefab, worldPosition, "Goal", boardRoot);
+                    if (goal != null)
+                    {
+                        goalViews[position] = goal;
+                    }
                 }
 
                 if (cell.hasBox)
@@ -279,6 +279,8 @@ SetNextLevelButtonVisible(true);
                 }
             }
         }
+
+        RefreshGoalViews();
 
         if (playerView == null)
         {
@@ -363,6 +365,14 @@ SetNextLevelButtonVisible(true);
         GameObject instance = Instantiate(prefab, worldPosition, Quaternion.identity, parent);
         instance.name = fallbackName;
         return instance.transform;
+    }
+
+    private void RefreshGoalViews()
+    {
+        foreach (KeyValuePair<Vector2Int, Transform> pair in goalViews)
+        {
+            pair.Value.gameObject.SetActive(!gridState.HasBox(pair.Key));
+        }
     }
 
     private Vector3 GridToWorld(Vector2Int gridPosition)
