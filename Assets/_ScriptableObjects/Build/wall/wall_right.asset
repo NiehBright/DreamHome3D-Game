@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db263d37f51e49b08f785ec093e44a7c, type: 3}
+  m_Name: wall_right
+  m_EditorClassIdentifier: Assembly-CSharp::Runtime.Build.FurnitureItemData
+  itemId: wall_right
+  displayName: Wall Right
+  size: {x: 1, y: 1}
+  canRotate: 0
+  price: 50
+  prefab: {fileID: 3365399835859098524, guid: 2f7019f00b02c4f669d90ba93b03a52a, type: 3}
+  visualRotationOffsetDegrees: 0
+

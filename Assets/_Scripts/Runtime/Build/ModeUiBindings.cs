@@ -8,6 +8,7 @@ namespace Runtime.Build
         [Header("Controllers")]
         [SerializeField] private ModeController modeController;
         [SerializeField] private BuildModeController buildModeController;
+        [SerializeField] private FurnitureShopUI furnitureShopUI;
 
         [Header("Main UI")]
         [SerializeField] private Button buildButton;

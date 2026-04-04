@@ -218,6 +218,7 @@ namespace Runtime.Build
 
         if (!active)
         {
+            isDeleteMode = false;
             CancelPlacement();
             selectedPlacementId = null;
         }
@@ -262,7 +263,6 @@ namespace Runtime.Build
 
         public void CancelPlacement()
         {
-        isDeleteMode = false;
 
         if (activePreview == null)
         {
