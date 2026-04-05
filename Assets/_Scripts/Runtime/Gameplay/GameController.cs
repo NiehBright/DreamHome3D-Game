@@ -28,6 +28,15 @@ public class GameController : MonoBehaviour
 
     [Header("Layout")]
     [SerializeField] private float cellSize = 1f;
+    [SerializeField] private float floorYOffset = -0.5f;
+    [SerializeField] private float playerGoalYOffset = 0f;
+    
+    [Header("Object Scale")]
+    [SerializeField] private float floorScale = 1f;
+    [SerializeField] private float wallScale = 1f;
+    [SerializeField] private float goalScale = 1f;
+    [SerializeField] private float boxScale = 1f;
+    [SerializeField] private float playerScale = 1f;
 
     [Header("Events")]
     [SerializeField] private UnityEvent onLevelCompleted;
@@ -290,12 +299,13 @@ public class GameController : MonoBehaviour
                 }
 
                 Vector3 worldPosition = GridToWorld(position);
+                Vector3 floorWorldPosition = GridToWorldFloor(position);
                 GameObject floorPrefabToUse = ((position.x + position.y) % 2 == 0) ? floorLightPrefab : floorDarkPrefab;
-                SpawnIfAssigned(floorPrefabToUse, worldPosition, "Floor", boardRoot);
+                SpawnIfAssigned(floorPrefabToUse, floorWorldPosition, "Floor", boardRoot, floorScale);
 
                 if (cell.isGoal)
                 {
-                    Transform goal = SpawnIfAssigned(goalPrefab, worldPosition, "Goal", boardRoot);
+                    Transform goal = SpawnIfAssigned(goalPrefab, worldPosition, "Goal", boardRoot, goalScale);
                     if (goal != null)
                     {
                         goalViews[position] = goal;
@@ -304,7 +314,7 @@ public class GameController : MonoBehaviour
 
                 if (cell.hasBox)
                 {
-                    Transform box = SpawnIfAssigned(boxPrefab, worldPosition, "Box", boardRoot);
+                    Transform box = SpawnIfAssigned(boxPrefab, worldPosition, "Box", boardRoot, boxScale);
                     if (box != null)
                     {
                         boxViews[position] = box;
@@ -313,7 +323,7 @@ public class GameController : MonoBehaviour
 
                 if (cell.hasPlayerStart)
                 {
-                    playerView = SpawnIfAssigned(playerPrefab, worldPosition, "Player", boardRoot);
+                    playerView = SpawnIfAssigned(playerPrefab, worldPosition, "Player", boardRoot, playerScale);
                 }
             }
         }
@@ -322,7 +332,7 @@ public class GameController : MonoBehaviour
 
         if (playerView == null)
         {
-            playerView = SpawnIfAssigned(playerPrefab, GridToWorld(gridState.PlayerPosition), "Player", boardRoot);
+            playerView = SpawnIfAssigned(playerPrefab, GridToWorld(gridState.PlayerPosition), "Player", boardRoot, playerScale);
         }
     }
 
@@ -393,7 +403,7 @@ public class GameController : MonoBehaviour
         LoadNextLevel();
     }
 
-    private Transform SpawnIfAssigned(GameObject prefab, Vector3 worldPosition, string fallbackName, Transform parent)
+    private Transform SpawnIfAssigned(GameObject prefab, Vector3 worldPosition, string fallbackName, Transform parent, float scale = 1f)
     {
         if (prefab == null)
         {
@@ -402,6 +412,7 @@ public class GameController : MonoBehaviour
 
         GameObject instance = Instantiate(prefab, worldPosition, Quaternion.identity, parent);
         instance.name = fallbackName;
+        instance.transform.localScale = Vector3.one * scale;
         return instance.transform;
     }
 
@@ -415,7 +426,12 @@ public class GameController : MonoBehaviour
 
     private Vector3 GridToWorld(Vector2Int gridPosition)
     {
-        return new Vector3(gridPosition.x * cellSize, 0f, gridPosition.y * cellSize);
+        return new Vector3(gridPosition.x * cellSize, playerGoalYOffset, gridPosition.y * cellSize);
+    }
+
+    private Vector3 GridToWorldFloor(Vector2Int gridPosition)
+    {
+        return new Vector3(gridPosition.x * cellSize, floorYOffset, gridPosition.y * cellSize);
     }
 
     private void SetResetButtonVisible(bool visible)

@@ -18,3 +18,5 @@ MonoBehaviour:
   canRotate: 1
   price: 100
   prefab: {fileID: 8328837259661745433, guid: ff105ebf6dbf18b4f8330ea0536a5cc1, type: 3}
+  shopIcon: {fileID: 21300000, guid: c741f9cd562d92249b84f9a5fec2b5d2, type: 3}
+  visualRotationOffsetDegrees: 0
