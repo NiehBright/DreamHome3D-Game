@@ -8,7 +8,7 @@ namespace Runtime.Build
 {
     public class BuildModeController : MonoBehaviour
     {
-        private const string BoundsObjectName = "BuildCameraBounds";
+        private const string BoundsObjectName = "MainCameraBounds";
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
@@ -131,35 +131,61 @@ namespace Runtime.Build
         LoadFromSave();
     }
 
-        [ContextMenu("Create/Assign Build Camera Bounds Collider")]
+        [ContextMenu("Create/Assign Camera Bounds Collider")]
         private void CreateOrAssignCameraBoundsCollider()
         {
-        if (cameraBoundsCollider != null)
-        {
-            return;
+            if (cameraBoundsCollider != null)
+            {
+                return;
+            }
+
+            GameObject boundsObject = GameObject.Find(BoundsObjectName);
+            if (boundsObject == null)
+            {
+                boundsObject = new GameObject(BoundsObjectName);
+                boundsObject.transform.SetParent(transform, false);
+                boundsObject.transform.localPosition = Vector3.zero;
+            }
+
+            BoxCollider createdCollider = boundsObject.GetComponent<BoxCollider>();
+            if (createdCollider == null)
+            {
+                createdCollider = boundsObject.AddComponent<BoxCollider>();
+            }
+
+            createdCollider.isTrigger = true;
+            createdCollider.size = new Vector3(gridWidth * cellSize, 20f, gridHeight * cellSize);
+            createdCollider.center = new Vector3((gridWidth - 1) * cellSize * 0.5f, 0f, (gridHeight - 1) * cellSize * 0.5f);
+
+            cameraBoundsCollider = createdCollider;
         }
-
-        GameObject boundsObject = new GameObject(BoundsObjectName);
-        boundsObject.transform.SetParent(transform, false);
-        boundsObject.transform.localPosition = Vector3.zero;
-
-        BoxCollider createdCollider = boundsObject.AddComponent<BoxCollider>();
-        createdCollider.isTrigger = true;
-        createdCollider.size = new Vector3(gridWidth * cellSize, 20f, gridHeight * cellSize);
-        createdCollider.center = new Vector3((gridWidth - 1) * cellSize * 0.5f, 0f, (gridHeight - 1) * cellSize * 0.5f);
-
-        cameraBoundsCollider = createdCollider;
-    }
 
         private void TryAutoAssignBoundsCollider()
         {
-        if (cameraBoundsCollider != null)
-        {
-            return;
-        }
+            if (cameraBoundsCollider != null)
+            {
+                return;
+            }
 
-        cameraBoundsCollider = GetComponentInChildren<BoxCollider>();
-    }
+            if (buildCamera != null)
+            {
+                cameraBoundsCollider = buildCamera.GetComponentInChildren<BoxCollider>(true);
+            }
+
+            if (cameraBoundsCollider == null)
+            {
+                cameraBoundsCollider = GetComponentInChildren<BoxCollider>(true);
+            }
+
+            if (cameraBoundsCollider == null)
+            {
+                GameObject boundsObject = GameObject.Find(BoundsObjectName);
+                if (boundsObject != null)
+                {
+                    cameraBoundsCollider = boundsObject.GetComponent<BoxCollider>();
+                }
+            }
+        }
 
         private void OnDestroy()
         {
