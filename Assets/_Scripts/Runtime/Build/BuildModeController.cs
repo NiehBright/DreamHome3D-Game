@@ -8,6 +8,7 @@ namespace Runtime.Build
 {
     public class BuildModeController : MonoBehaviour
     {
+        private const string BoundsObjectName = "MainCameraBounds";
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
@@ -35,7 +36,27 @@ namespace Runtime.Build
         [Header("Camera Pan")]
         [SerializeField] private bool enableCameraPan = true;
         [SerializeField, Min(1f)] private float tapMaxMovementPixels = 14f;
+        [SerializeField, Min(1f)] private float cameraPanStartPixels = 28f;
         [SerializeField, Min(0.01f)] private float tapMaxDurationSeconds = 0.25f;
+
+        [Header("Camera Zoom")]
+        [SerializeField] private bool enableCameraZoom = true;
+        [SerializeField] private bool allowMouseWheelZoomOverUi = true;
+        [SerializeField, Min(0.0001f)] private float pinchZoomSensitivity = 0.01f;
+        [SerializeField, Min(0.0001f)] private float mouseWheelZoomSensitivity = 0.1f;
+        [SerializeField, Min(0.0001f)] private float orthographicZoomSpeed = 0.02f;
+        [SerializeField, Min(0.0001f)] private float perspectiveZoomSpeed = 0.1f;
+        [SerializeField, Min(0.1f)] private float minOrthographicSize = 3f;
+        [SerializeField, Min(0.1f)] private float maxOrthographicSize = 12f;
+        [SerializeField, Range(1f, 179f)] private float minPerspectiveFov = 25f;
+        [SerializeField, Range(1f, 179f)] private float maxPerspectiveFov = 70f;
+
+        [Header("Camera Bounds")]
+        [SerializeField] private bool clampCameraToBounds = true;
+        [SerializeField] private BoxCollider cameraBoundsCollider;
+        [SerializeField] private bool useColliderBoundsOnly = true;
+        [SerializeField] private Vector2 cameraMinXZ = new Vector2(-4f, -4f);
+        [SerializeField] private Vector2 cameraMaxXZ = new Vector2(12f, 12f);
 
         [Header("Grid Visual")]
         [SerializeField] private bool showGridOverlay = true;
@@ -62,9 +83,16 @@ namespace Runtime.Build
         private bool gridVisible = true;
         private bool pointerIsDown;
         private bool pointerMovedAsDrag;
+        private bool pointerBlockedByUi;
+        private int activePointerId = -1;
         private Vector2 pointerDownScreenPosition;
         private Vector2 pointerLastScreenPosition;
         private float pointerDownTime;
+        private int lastPreviewRotateFrame = -1;
+        private int lastSelectedRotateFrame = -1;
+        private bool isPinchZoomActive;
+        private float previousPinchDistance;
+        private static readonly List<RaycastResult> UiRaycastResults = new List<RaycastResult>(8);
 
         public event Action<string> SelectionChanged;
 
@@ -95,11 +123,69 @@ namespace Runtime.Build
             buildCamera = Camera.main;
         }
 
+        TryAutoAssignBoundsCollider();
+
         CreateGridState();
         BuildGridVisual();
         ApplyGridVisibility();
         LoadFromSave();
     }
+
+        [ContextMenu("Create/Assign Camera Bounds Collider")]
+        private void CreateOrAssignCameraBoundsCollider()
+        {
+            if (cameraBoundsCollider != null)
+            {
+                return;
+            }
+
+            GameObject boundsObject = GameObject.Find(BoundsObjectName);
+            if (boundsObject == null)
+            {
+                boundsObject = new GameObject(BoundsObjectName);
+                boundsObject.transform.SetParent(transform, false);
+                boundsObject.transform.localPosition = Vector3.zero;
+            }
+
+            BoxCollider createdCollider = boundsObject.GetComponent<BoxCollider>();
+            if (createdCollider == null)
+            {
+                createdCollider = boundsObject.AddComponent<BoxCollider>();
+            }
+
+            createdCollider.isTrigger = true;
+            createdCollider.size = new Vector3(gridWidth * cellSize, 20f, gridHeight * cellSize);
+            createdCollider.center = new Vector3((gridWidth - 1) * cellSize * 0.5f, 0f, (gridHeight - 1) * cellSize * 0.5f);
+
+            cameraBoundsCollider = createdCollider;
+        }
+
+        private void TryAutoAssignBoundsCollider()
+        {
+            if (cameraBoundsCollider != null)
+            {
+                return;
+            }
+
+            if (buildCamera != null)
+            {
+                cameraBoundsCollider = buildCamera.GetComponentInChildren<BoxCollider>(true);
+            }
+
+            if (cameraBoundsCollider == null)
+            {
+                cameraBoundsCollider = GetComponentInChildren<BoxCollider>(true);
+            }
+
+            if (cameraBoundsCollider == null)
+            {
+                GameObject boundsObject = GameObject.Find(BoundsObjectName);
+                if (boundsObject != null)
+                {
+                    cameraBoundsCollider = boundsObject.GetComponent<BoxCollider>();
+                }
+            }
+        }
 
         private void OnDestroy()
         {
@@ -128,7 +214,17 @@ namespace Runtime.Build
             ToggleDeleteMode();
         }
 
-        if (!TryGetPointerState(out Vector2 pointerScreenPosition, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed))
+        if (TryHandleCameraZoom())
+        {
+            // Zoom gesture should not also place/select furniture in the same frame.
+            pointerIsDown = false;
+            pointerMovedAsDrag = false;
+            pointerBlockedByUi = false;
+            activePointerId = -1;
+            return;
+        }
+
+        if (!TryGetPointerState(out Vector2 pointerScreenPosition, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed, out int pointerId))
         {
             return;
         }
@@ -137,22 +233,42 @@ namespace Runtime.Build
         {
             pointerIsDown = true;
             pointerMovedAsDrag = false;
+            activePointerId = pointerId;
             pointerDownScreenPosition = pointerScreenPosition;
             pointerLastScreenPosition = pointerScreenPosition;
             pointerDownTime = Time.unscaledTime;
+            pointerBlockedByUi = IsPointerOverUi(activePointerId, pointerScreenPosition);
         }
 
         if (pointerIsDown && isPressed)
         {
+            if (IsPointerOverUi(activePointerId, pointerScreenPosition))
+            {
+                pointerBlockedByUi = true;
+            }
+
+            if (pointerBlockedByUi)
+            {
+                pointerLastScreenPosition = pointerScreenPosition;
+                return;
+            }
+
             if (!pointerMovedAsDrag)
             {
                 float tapMoveThresholdSqr = tapMaxMovementPixels * tapMaxMovementPixels;
                 pointerMovedAsDrag = (pointerScreenPosition - pointerDownScreenPosition).sqrMagnitude > tapMoveThresholdSqr;
             }
 
-            if (pointerMovedAsDrag && enableCameraPan)
+            if (enableCameraPan)
             {
-                PanCamera(pointerLastScreenPosition, pointerScreenPosition);
+                float panThreshold = Mathf.Max(tapMaxMovementPixels, cameraPanStartPixels);
+                float panThresholdSqr = panThreshold * panThreshold;
+                float dragDistanceSqr = (pointerScreenPosition - pointerDownScreenPosition).sqrMagnitude;
+
+                if (dragDistanceSqr > panThresholdSqr)
+                {
+                    PanCamera(pointerLastScreenPosition, pointerScreenPosition);
+                }
             }
 
             pointerLastScreenPosition = pointerScreenPosition;
@@ -168,13 +284,16 @@ namespace Runtime.Build
             && Time.unscaledTime - pointerDownTime <= tapMaxDurationSeconds;
 
         pointerIsDown = false;
+        bool blockedByUiThisGesture = pointerBlockedByUi;
+        pointerBlockedByUi = false;
+        activePointerId = -1;
 
         if (!isTap)
         {
             return;
         }
 
-        if (IsPointerOverUi())
+        if (blockedByUiThisGesture || IsPointerOverUi(pointerId, pointerScreenPosition))
         {
             return;
         }
@@ -272,12 +391,31 @@ namespace Runtime.Build
 
         public void RotatePreview()
         {
+        if (lastPreviewRotateFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastPreviewRotateFrame = Time.frameCount;
+
         if (activePreview == null || activePreview.item == null || !activePreview.item.CanRotate)
         {
             return;
         }
 
-        activePreview.rotationQuarterTurns = (activePreview.rotationQuarterTurns + 1) % 4;
+        int nextRotation = (activePreview.rotationQuarterTurns + 1) % 4;
+        if (TryFindRotationOrigin(
+            activePreview.item,
+            activePreview.origin,
+            activePreview.rotationQuarterTurns,
+            nextRotation,
+            activePreview.editingPlacementId,
+            out Vector2Int resolvedOrigin))
+        {
+            activePreview.origin = resolvedOrigin;
+        }
+
+        activePreview.rotationQuarterTurns = nextRotation;
         ApplyPreviewTransform();
     }
 
@@ -322,6 +460,13 @@ namespace Runtime.Build
 
         public void RotateSelectedPlacement()
         {
+        if (lastSelectedRotateFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastSelectedRotateFrame = Time.frameCount;
+
         if (string.IsNullOrEmpty(selectedPlacementId)
             || !runtimePlacements.TryGetValue(selectedPlacementId, out RuntimePlacement placement)
             || placement.item == null
@@ -333,16 +478,30 @@ namespace Runtime.Build
         int nextRotation = (placement.data.rotationQuarterTurns + 1) % 4;
 
         gridState.RemovePlacement(selectedPlacementId, placement.item);
-        PlacementValidationResult validation = gridState.ValidatePlacement(placement.item, placement.data.Origin, nextRotation);
+        Vector2Int nextOrigin = placement.data.Origin;
+        if (TryFindRotationOrigin(
+            placement.item,
+            placement.data.Origin,
+            placement.data.rotationQuarterTurns,
+            nextRotation,
+            null,
+            out Vector2Int resolvedOrigin))
+        {
+            nextOrigin = resolvedOrigin;
+        }
+
+        PlacementValidationResult validation = gridState.ValidatePlacement(placement.item, nextOrigin, nextRotation);
         if (!validation.isValid)
         {
             gridState.AddPlacement(placement.data, placement.item);
             return;
         }
 
+        placement.data.x = nextOrigin.x;
+        placement.data.y = nextOrigin.y;
         placement.data.rotationQuarterTurns = nextRotation;
         placement.view.rotation = GetPlacementRotation(placement.item, nextRotation);
-        placement.view.position = GridToWorld(placement.data.Origin, placement.item.Size, nextRotation, placedYOffset);
+        placement.view.position = GridToWorld(nextOrigin, placement.item.Size, nextRotation, placedYOffset);
         gridState.AddPlacement(placement.data, placement.item);
         SaveIfNeeded();
     }
@@ -415,6 +574,35 @@ namespace Runtime.Build
 
         Vector3 delta = toWorld - fromWorld;
         buildCamera.transform.position += new Vector3(delta.x, 0f, delta.z);
+        ClampBuildCameraPosition();
+    }
+
+        private void ClampBuildCameraPosition()
+        {
+        if (!clampCameraToBounds || buildCamera == null)
+        {
+            return;
+        }
+
+        Vector3 cameraPosition = buildCamera.transform.position;
+
+        if (cameraBoundsCollider != null)
+        {
+            Bounds bounds = cameraBoundsCollider.bounds;
+            cameraPosition.x = Mathf.Clamp(cameraPosition.x, bounds.min.x, bounds.max.x);
+            cameraPosition.z = Mathf.Clamp(cameraPosition.z, bounds.min.z, bounds.max.z);
+        }
+        else if (useColliderBoundsOnly)
+        {
+            return;
+        }
+        else
+        {
+            cameraPosition.x = Mathf.Clamp(cameraPosition.x, Mathf.Min(cameraMinXZ.x, cameraMaxXZ.x), Mathf.Max(cameraMinXZ.x, cameraMaxXZ.x));
+            cameraPosition.z = Mathf.Clamp(cameraPosition.z, Mathf.Min(cameraMinXZ.y, cameraMaxXZ.y), Mathf.Max(cameraMinXZ.y, cameraMaxXZ.y));
+        }
+
+        buildCamera.transform.position = cameraPosition;
     }
 
         private bool TryScreenToGroundPoint(Vector2 screenPosition, out Vector3 worldPoint)
@@ -435,6 +623,84 @@ namespace Runtime.Build
 
         worldPoint = ray.GetPoint(distance);
         return true;
+    }
+
+        private bool TryHandleCameraZoom()
+        {
+        if (!enableCameraZoom || buildCamera == null)
+        {
+            return false;
+        }
+
+        if (Touchscreen.current != null)
+        {
+            var touch0 = Touchscreen.current.touches[0];
+            var touch1 = Touchscreen.current.touches[1];
+            bool hasPinch = touch0.press.isPressed && touch1.press.isPressed;
+
+            if (hasPinch)
+            {
+                Vector2 p0 = touch0.position.ReadValue();
+                Vector2 p1 = touch1.position.ReadValue();
+                float pinchDistance = Vector2.Distance(p0, p1);
+
+                if (isPinchZoomActive)
+                {
+                    float pinchDelta = pinchDistance - previousPinchDistance;
+                    if (Mathf.Abs(pinchDelta) > 0.01f)
+                    {
+                        ApplyZoomDelta(pinchDelta * pinchZoomSensitivity);
+                    }
+                }
+
+                previousPinchDistance = pinchDistance;
+                isPinchZoomActive = true;
+                return true;
+            }
+
+            isPinchZoomActive = false;
+        }
+
+        if (Mouse.current == null)
+        {
+            return false;
+        }
+
+        float scrollY = Mouse.current.scroll.ReadValue().y;
+        if (Mathf.Abs(scrollY) < 0.001f)
+        {
+            return false;
+        }
+
+        if (!allowMouseWheelZoomOverUi && IsPointerOverUi(-1, Mouse.current.position.ReadValue()))
+        {
+            return false;
+        }
+
+        ApplyZoomDelta(scrollY * mouseWheelZoomSensitivity);
+        return true;
+    }
+
+        private void ApplyZoomDelta(float zoomDelta)
+        {
+        if (buildCamera == null)
+        {
+            return;
+        }
+
+        if (buildCamera.orthographic)
+        {
+            float minSize = Mathf.Min(minOrthographicSize, maxOrthographicSize);
+            float maxSize = Mathf.Max(minOrthographicSize, maxOrthographicSize);
+            float nextSize = buildCamera.orthographicSize - (zoomDelta * orthographicZoomSpeed);
+            buildCamera.orthographicSize = Mathf.Clamp(nextSize, minSize, maxSize);
+            return;
+        }
+
+        float minFov = Mathf.Min(minPerspectiveFov, maxPerspectiveFov);
+        float maxFov = Mathf.Max(minPerspectiveFov, maxPerspectiveFov);
+        float nextFov = buildCamera.fieldOfView - (zoomDelta * perspectiveZoomSpeed);
+        buildCamera.fieldOfView = Mathf.Clamp(nextFov, minFov, maxFov);
     }
 
         private void BeginNewPlacement(FurnitureItemData item, Vector2Int origin)
@@ -738,6 +1004,93 @@ namespace Runtime.Build
         return gridOrigin + new Vector3(centerX * cellSize, yOffset, centerY * cellSize);
     }
 
+        private bool TryFindRotationOrigin(
+            FurnitureItemData item,
+            Vector2Int currentOrigin,
+            int currentRotationQuarterTurns,
+            int nextRotationQuarterTurns,
+            string ignoredPlacementId,
+            out Vector2Int resolvedOrigin)
+        {
+        resolvedOrigin = currentOrigin;
+
+        if (item == null)
+        {
+            return false;
+        }
+
+        Vector2Int currentSize = BuildGridState.RotateSize(item.Size, currentRotationQuarterTurns);
+        Vector2Int nextSize = BuildGridState.RotateSize(item.Size, nextRotationQuarterTurns);
+        Vector2 center = new Vector2(
+            currentOrigin.x + (currentSize.x - 1) * 0.5f,
+            currentOrigin.y + (currentSize.y - 1) * 0.5f);
+
+        Vector2Int preferredOrigin = new Vector2Int(
+            Mathf.RoundToInt(center.x - (nextSize.x - 1) * 0.5f),
+            Mathf.RoundToInt(center.y - (nextSize.y - 1) * 0.5f));
+
+        Vector2Int clampedPreferred = ClampOriginToGrid(preferredOrigin, nextSize);
+        Vector2Int clampedCurrent = ClampOriginToGrid(currentOrigin, nextSize);
+
+        if (TryValidateCandidate(item, clampedPreferred, nextRotationQuarterTurns, ignoredPlacementId, out resolvedOrigin))
+        {
+            return true;
+        }
+
+        if (TryValidateCandidate(item, clampedCurrent, nextRotationQuarterTurns, ignoredPlacementId, out resolvedOrigin))
+        {
+            return true;
+        }
+
+        const int maxSearchRadius = 2;
+        for (int radius = 1; radius <= maxSearchRadius; radius++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    Vector2Int candidate = new Vector2Int(clampedPreferred.x + dx, clampedPreferred.y + dy);
+                    candidate = ClampOriginToGrid(candidate, nextSize);
+
+                    if (TryValidateCandidate(item, candidate, nextRotationQuarterTurns, ignoredPlacementId, out resolvedOrigin))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+        private bool TryValidateCandidate(
+            FurnitureItemData item,
+            Vector2Int candidateOrigin,
+            int rotationQuarterTurns,
+            string ignoredPlacementId,
+            out Vector2Int resolvedOrigin)
+        {
+        PlacementValidationResult validation = gridState.ValidatePlacement(item, candidateOrigin, rotationQuarterTurns, ignoredPlacementId);
+        if (validation.isValid)
+        {
+            resolvedOrigin = candidateOrigin;
+            return true;
+        }
+
+        resolvedOrigin = default;
+        return false;
+    }
+
+        private Vector2Int ClampOriginToGrid(Vector2Int origin, Vector2Int rotatedSize)
+        {
+        int maxX = Mathf.Max(0, gridState.Width - rotatedSize.x);
+        int maxY = Mathf.Max(0, gridState.Height - rotatedSize.y);
+
+        return new Vector2Int(
+            Mathf.Clamp(origin.x, 0, maxX),
+            Mathf.Clamp(origin.y, 0, maxY));
+    }
+
         private bool TryGetGridCell(Vector2 pointerScreenPosition, out Vector2Int cell)
         {
         cell = default;
@@ -770,35 +1123,44 @@ namespace Runtime.Build
         SelectionChanged?.Invoke(selectedPlacementId);
     }
 
-        private static bool IsPointerOverUi()
+        private static bool IsPointerOverUi(int pointerId, Vector2 screenPosition)
         {
         if (EventSystem.current == null)
         {
             return false;
         }
 
-        if (Touchscreen.current != null)
+        if (pointerId >= 0 && EventSystem.current.IsPointerOverGameObject(pointerId))
         {
-            var touch = Touchscreen.current.primaryTouch;
-            if (touch.press.isPressed)
-            {
-                int touchId = touch.touchId.ReadValue();
-                if (EventSystem.current.IsPointerOverGameObject(touchId))
-                {
-                    return true;
-                }
-            }
+            return true;
         }
 
-        return EventSystem.current.IsPointerOverGameObject();
+        if (EventSystem.current.IsPointerOverGameObject())
+        {
+            return true;
+        }
+
+        UiRaycastResults.Clear();
+        var eventData = new PointerEventData(EventSystem.current)
+        {
+            position = screenPosition
+        };
+        EventSystem.current.RaycastAll(eventData, UiRaycastResults);
+        return UiRaycastResults.Count > 0;
     }
 
-        private static bool TryGetPointerState(out Vector2 position, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed)
+        private static bool TryGetPointerState(
+            out Vector2 position,
+            out bool pressedThisFrame,
+            out bool releasedThisFrame,
+            out bool isPressed,
+            out int pointerId)
         {
         position = default;
         pressedThisFrame = false;
         releasedThisFrame = false;
         isPressed = false;
+        pointerId = -1;
 
         if (Touchscreen.current != null)
         {
@@ -807,6 +1169,7 @@ namespace Runtime.Build
             pressedThisFrame = touch.press.wasPressedThisFrame;
             releasedThisFrame = touch.press.wasReleasedThisFrame;
             isPressed = touch.press.isPressed;
+            pointerId = touch.touchId.ReadValue();
             return true;
         }
 

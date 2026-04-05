@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using _Scripts.Runtime.Gameplay;
 
 namespace Runtime.Build
 {
@@ -9,6 +10,7 @@ namespace Runtime.Build
         [SerializeField] private ModeController modeController;
         [SerializeField] private BuildModeController buildModeController;
         [SerializeField] private FurnitureShopUI furnitureShopUI;
+        [SerializeField] private PuzzleLevelSelectController puzzleLevelSelectController;
 
         [Header("Main UI")]
         [SerializeField] private Button buildButton;
@@ -104,11 +106,18 @@ namespace Runtime.Build
 
         private void HandlePuzzleButton()
         {
+            if (puzzleLevelSelectController != null)
+            {
+                puzzleLevelSelectController.EnterPuzzleAndOpenSelector();
+                return;
+            }
+
             modeController?.EnterPuzzleMode();
         }
 
         private void HandleExitToMainButton()
         {
+            puzzleLevelSelectController?.CloseLevelSelect();
             modeController?.EnterMainMode();
         }
 

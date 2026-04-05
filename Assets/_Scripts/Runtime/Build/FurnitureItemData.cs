@@ -11,6 +11,7 @@ namespace Runtime.Build
         [SerializeField] private bool canRotate = true;
         [SerializeField, Min(0)] private int price = 100;
         [SerializeField] private GameObject prefab;
+        [SerializeField] private Sprite shopIcon;
         [SerializeField] private float visualRotationOffsetDegrees;
 
         public string ItemId => itemId;
@@ -19,6 +20,7 @@ namespace Runtime.Build
         public bool CanRotate => canRotate;
         public int Price => Mathf.Max(0, price);
         public GameObject Prefab => prefab;
+        public Sprite ShopIcon => shopIcon;
         public float VisualRotationOffsetDegrees => visualRotationOffsetDegrees;
     }
 }

@@ -421,5 +421,49 @@ Back to Main (loop)
 
 ---
 
+## 13. PUZZLE LEVEL SELECT (NEW)
+
+### Goal
+
+- Bam `Play Puzzle` o Main se vao Puzzle Mode va mo UI chon level
+- UI hien toi da 4 level theo cua so truot theo tien do
+- Vi du: `1 2 3 4` -> clear level 1 -> `2 3 4 5`
+- Nhan `Play` de vao level dang chon
+
+### Scripts
+
+- `Assets/_Scripts/Runtime/Gameplay/PuzzleLevelSelectController.cs`
+- `Assets/_Scripts/Runtime/Gameplay/GameController.cs` (bo sung `LoadLevelByIndex`, events, block input)
+- `Assets/_Scripts/Runtime/Build/ModeUiBindings.cs` (nut Puzzle goi selector)
+
+### Scene Setup (Unity Inspector)
+
+1. Trong `UI_Puzzle`, tao panel `LevelSelectPanel` (an mac dinh)
+2. Trong panel tao 4 button level: `LevelBtn_1..4`
+3. Tao 1 button `PlayButton`
+4. (Optional) Tao text `CurrentLevelText`
+5. Gan component `PuzzleLevelSelectController` vao 1 GameObject trong scene
+6. Assign:
+   - `GameController`
+   - `ModeController`
+   - `LevelSelectPanel`
+   - `PlayButton`
+   - `Level Buttons` (4 phan tu)
+   - `Level Labels` (TMP_Text tren tung button)
+7. Mo `ModeUiBindings` va assign them field `Puzzle Level Select Controller`
+
+### Saved Progress Keys
+
+- `Puzzle.HighestUnlocked`
+- `Puzzle.SelectedLevel`
+
+### Quick Test
+
+1. Vao Main, bam `Play Puzzle` -> panel level hien ra
+2. Bam `Play` -> vao level dang selected
+3. Hoan thanh level 1 -> mo lai se thay cua so dich sang `2 3 4 5` (neu danh sach level du)
+
+---
+
 **PUZZLE + BUILD INTEGRATION COMPLETE! 🎮🏠**
 

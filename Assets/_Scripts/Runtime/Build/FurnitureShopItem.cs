@@ -45,8 +45,11 @@ namespace Runtime.Build
                 priceText.text = $"${itemData.Price}";
             }
 
-            // Optionally set icon if prefab has a visual representation
-            // This is simplified - you might want to generate a thumbnail from the prefab
+            if (itemIcon != null)
+            {
+                itemIcon.sprite = itemData.ShopIcon;
+                itemIcon.enabled = itemData.ShopIcon != null;
+            }
         }
 
         private void HandleSelect()
