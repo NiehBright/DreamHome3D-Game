@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace Runtime.Build
@@ -64,6 +65,10 @@ namespace Runtime.Build
         private Vector2 pointerDownScreenPosition;
         private Vector2 pointerLastScreenPosition;
         private float pointerDownTime;
+
+        public event Action<string> SelectionChanged;
+
+        public Camera BuildCamera => buildCamera;
 
         private class RuntimePlacement
         {
@@ -169,6 +174,11 @@ namespace Runtime.Build
             return;
         }
 
+        if (IsPointerOverUi())
+        {
+            return;
+        }
+
         HandleTap(pointerScreenPosition);
     }
 
@@ -200,10 +210,20 @@ namespace Runtime.Build
 
         if (gridState.TryGetPlacementAtCell(cell, out string placementId))
         {
-            selectedPlacementId = placementId;
-            BeginMovePlacement(placementId);
+            if (selectedPlacementId == placementId)
+            {
+                BeginMovePlacement(placementId);
+            }
+            else
+            {
+                SetSelectedPlacement(placementId);
+                selectedItem = null;
+            }
+
             return;
         }
+
+        SetSelectedPlacement(null);
 
         if (selectedItem != null)
         {
@@ -218,8 +238,9 @@ namespace Runtime.Build
 
         if (!active)
         {
+            isDeleteMode = false;
             CancelPlacement();
-            selectedPlacementId = null;
+            SetSelectedPlacement(null);
         }
 
         ApplyGridVisibility();
@@ -245,7 +266,7 @@ namespace Runtime.Build
         public void SelectFurniture(FurnitureItemData item)
         {
         selectedItem = item;
-        selectedPlacementId = null;
+        SetSelectedPlacement(null);
         isDeleteMode = false;
     }
 
@@ -262,7 +283,6 @@ namespace Runtime.Build
 
         public void CancelPlacement()
         {
-        isDeleteMode = false;
 
         if (activePreview == null)
         {
@@ -285,11 +305,66 @@ namespace Runtime.Build
         EnableDeleteMode();
     }
 
+        public bool TryGetSelectedPlacementWorldPosition(out Vector3 worldPosition)
+        {
+        worldPosition = default;
+
+        if (string.IsNullOrEmpty(selectedPlacementId)
+            || !runtimePlacements.TryGetValue(selectedPlacementId, out RuntimePlacement placement)
+            || placement.view == null)
+        {
+            return false;
+        }
+
+        worldPosition = placement.view.position;
+        return true;
+    }
+
+        public void RotateSelectedPlacement()
+        {
+        if (string.IsNullOrEmpty(selectedPlacementId)
+            || !runtimePlacements.TryGetValue(selectedPlacementId, out RuntimePlacement placement)
+            || placement.item == null
+            || !placement.item.CanRotate)
+        {
+            return;
+        }
+
+        int nextRotation = (placement.data.rotationQuarterTurns + 1) % 4;
+
+        gridState.RemovePlacement(selectedPlacementId, placement.item);
+        PlacementValidationResult validation = gridState.ValidatePlacement(placement.item, placement.data.Origin, nextRotation);
+        if (!validation.isValid)
+        {
+            gridState.AddPlacement(placement.data, placement.item);
+            return;
+        }
+
+        placement.data.rotationQuarterTurns = nextRotation;
+        placement.view.rotation = GetPlacementRotation(placement.item, nextRotation);
+        placement.view.position = GridToWorld(placement.data.Origin, placement.item.Size, nextRotation, placedYOffset);
+        gridState.AddPlacement(placement.data, placement.item);
+        SaveIfNeeded();
+    }
+
+        public void DeleteSelectedPlacement()
+        {
+        if (string.IsNullOrEmpty(selectedPlacementId))
+        {
+            return;
+        }
+
+        string placementId = selectedPlacementId;
+        SetSelectedPlacement(null);
+        RemovePlacement(placementId, true);
+        SaveIfNeeded();
+    }
+
         public void EnableDeleteMode()
         {
         isDeleteMode = true;
         CancelPlacement();
-        selectedPlacementId = null;
+        SetSelectedPlacement(null);
         Debug.Log("Delete mode ON: tap furniture to delete.");
     }
 
@@ -316,7 +391,7 @@ namespace Runtime.Build
         if (isDeleteMode)
         {
             CancelPlacement();
-            selectedPlacementId = null;
+            SetSelectedPlacement(null);
             Debug.Log("Delete mode ON: tap furniture to delete.");
         }
         else
@@ -398,6 +473,8 @@ namespace Runtime.Build
         {
             return;
         }
+
+        SetSelectedPlacement(null);
 
         CancelPlacement();
 
@@ -534,6 +611,11 @@ namespace Runtime.Build
         if (!runtimePlacements.TryGetValue(placementId, out RuntimePlacement runtimePlacement))
         {
             return;
+        }
+
+        if (selectedPlacementId == placementId)
+        {
+            SetSelectedPlacement(null);
         }
 
         gridState.RemovePlacement(placementId, runtimePlacement.item);
@@ -675,6 +757,40 @@ namespace Runtime.Build
         Vector3 world = ray.GetPoint(distance) - gridOrigin;
         cell = new Vector2Int(Mathf.RoundToInt(world.x / cellSize), Mathf.RoundToInt(world.z / cellSize));
         return true;
+    }
+
+        private void SetSelectedPlacement(string placementId)
+        {
+        if (selectedPlacementId == placementId)
+        {
+            return;
+        }
+
+        selectedPlacementId = placementId;
+        SelectionChanged?.Invoke(selectedPlacementId);
+    }
+
+        private static bool IsPointerOverUi()
+        {
+        if (EventSystem.current == null)
+        {
+            return false;
+        }
+
+        if (Touchscreen.current != null)
+        {
+            var touch = Touchscreen.current.primaryTouch;
+            if (touch.press.isPressed)
+            {
+                int touchId = touch.touchId.ReadValue();
+                if (EventSystem.current.IsPointerOverGameObject(touchId))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return EventSystem.current.IsPointerOverGameObject();
     }
 
         private static bool TryGetPointerState(out Vector2 position, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed)
