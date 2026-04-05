@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -31,6 +32,9 @@ public class GameController : MonoBehaviour
     [Header("Events")]
     [SerializeField] private UnityEvent onLevelCompleted;
 
+    public event Action<int> LevelLoaded;
+    public event Action<int> LevelCompleted;
+
     private GridState gridState;
     private readonly Dictionary<Vector2Int, Transform> boxViews = new Dictionary<Vector2Int, Transform>();
     private readonly Dictionary<Vector2Int, Transform> goalViews = new Dictionary<Vector2Int, Transform>();
@@ -41,8 +45,13 @@ public class GameController : MonoBehaviour
 
     private int currentLevelIndex;
     private LevelData currentLevelData;
+    private bool inputBlocked;
 
     private int lastAdvanceFrame = -1;
+
+    public int CurrentLevelIndex => currentLevelIndex;
+    public int TotalLevelCount => levelListData != null ? levelListData.Count : 0;
+    public int StartingLevelIndex => Mathf.Max(0, startingLevelIndex);
 
     private void Awake()
     {
@@ -68,6 +77,11 @@ public class GameController : MonoBehaviour
         {
             resetButton.onClick.AddListener(HandleResetButtonClicked);
         }
+
+        if (nextLevelButton != null)
+        {
+            nextLevelButton.onClick.AddListener(HandleNextLevelButtonClicked);
+        }
     }
 
     private void OnDisable()
@@ -87,12 +101,30 @@ public class GameController : MonoBehaviour
         {
             resetButton.onClick.RemoveListener(HandleResetButtonClicked);
         }
+
+        if (nextLevelButton != null)
+        {
+            nextLevelButton.onClick.RemoveListener(HandleNextLevelButtonClicked);
+        }
     }
 
     private void Start()
     {
-        currentLevelIndex = Mathf.Max(0, startingLevelIndex);
+        LoadLevelByIndex(Mathf.Max(0, startingLevelIndex));
+    }
+
+    public bool LoadLevelByIndex(int levelIndex)
+    {
+        if (levelListData == null || levelListData.Count == 0)
+        {
+            Debug.LogWarning("GameController missing LevelListData or level list is empty.");
+            return false;
+        }
+
+        int clampedIndex = Mathf.Clamp(levelIndex, 0, levelListData.Count - 1);
+        currentLevelIndex = clampedIndex;
         LoadLevel();
+        return true;
     }
 
     public void LoadLevel()
@@ -108,13 +140,13 @@ public class GameController : MonoBehaviour
         moveHistory.Clear();
         SetBackButtonVisible(true);
         SetResetButtonVisible(true);
-SetNextLevelButtonVisible(true);
         SetNextLevelButtonVisible(false);
         UpdateLevelLabel();
         RebuildBoard();
         RefreshDynamicViews();
 
         UpdateBackButtonState();
+        LevelLoaded?.Invoke(currentLevelIndex);
     }
 
     public void LoadNextLevel()
@@ -138,7 +170,7 @@ SetNextLevelButtonVisible(true);
 
     private void HandleSwipe(Vector2Int direction)
     {
-        if (completed || gridState == null)
+        if (inputBlocked || completed || gridState == null)
         {
             return;
         }
@@ -168,10 +200,16 @@ SetNextLevelButtonVisible(true);
             completed = true;
             Debug.Log("Level completed.");
             onLevelCompleted?.Invoke();
+            LevelCompleted?.Invoke(currentLevelIndex);
             SetNextLevelButtonVisible(HasNextLevel());
             SetBackButtonVisible(false);
             SetResetButtonVisible(false);
         }
+    }
+
+    public void SetInputBlocked(bool blocked)
+    {
+        inputBlocked = blocked;
     }
 
     private void HandleBackButtonClicked()

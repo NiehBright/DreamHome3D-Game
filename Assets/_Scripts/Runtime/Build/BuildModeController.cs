@@ -8,6 +8,7 @@ namespace Runtime.Build
 {
     public class BuildModeController : MonoBehaviour
     {
+        private const string BoundsObjectName = "BuildCameraBounds";
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
 
@@ -35,7 +36,15 @@ namespace Runtime.Build
         [Header("Camera Pan")]
         [SerializeField] private bool enableCameraPan = true;
         [SerializeField, Min(1f)] private float tapMaxMovementPixels = 14f;
+        [SerializeField, Min(1f)] private float cameraPanStartPixels = 28f;
         [SerializeField, Min(0.01f)] private float tapMaxDurationSeconds = 0.25f;
+
+        [Header("Camera Bounds")]
+        [SerializeField] private bool clampCameraToBounds = true;
+        [SerializeField] private BoxCollider cameraBoundsCollider;
+        [SerializeField] private bool useColliderBoundsOnly = true;
+        [SerializeField] private Vector2 cameraMinXZ = new Vector2(-4f, -4f);
+        [SerializeField] private Vector2 cameraMaxXZ = new Vector2(12f, 12f);
 
         [Header("Grid Visual")]
         [SerializeField] private bool showGridOverlay = true;
@@ -62,9 +71,12 @@ namespace Runtime.Build
         private bool gridVisible = true;
         private bool pointerIsDown;
         private bool pointerMovedAsDrag;
+        private bool pointerBlockedByUi;
+        private int activePointerId = -1;
         private Vector2 pointerDownScreenPosition;
         private Vector2 pointerLastScreenPosition;
         private float pointerDownTime;
+        private static readonly List<RaycastResult> UiRaycastResults = new List<RaycastResult>(8);
 
         public event Action<string> SelectionChanged;
 
@@ -95,10 +107,42 @@ namespace Runtime.Build
             buildCamera = Camera.main;
         }
 
+        TryAutoAssignBoundsCollider();
+
         CreateGridState();
         BuildGridVisual();
         ApplyGridVisibility();
         LoadFromSave();
+    }
+
+        [ContextMenu("Create/Assign Build Camera Bounds Collider")]
+        private void CreateOrAssignCameraBoundsCollider()
+        {
+        if (cameraBoundsCollider != null)
+        {
+            return;
+        }
+
+        GameObject boundsObject = new GameObject(BoundsObjectName);
+        boundsObject.transform.SetParent(transform, false);
+        boundsObject.transform.localPosition = Vector3.zero;
+
+        BoxCollider createdCollider = boundsObject.AddComponent<BoxCollider>();
+        createdCollider.isTrigger = true;
+        createdCollider.size = new Vector3(gridWidth * cellSize, 20f, gridHeight * cellSize);
+        createdCollider.center = new Vector3((gridWidth - 1) * cellSize * 0.5f, 0f, (gridHeight - 1) * cellSize * 0.5f);
+
+        cameraBoundsCollider = createdCollider;
+    }
+
+        private void TryAutoAssignBoundsCollider()
+        {
+        if (cameraBoundsCollider != null)
+        {
+            return;
+        }
+
+        cameraBoundsCollider = GetComponentInChildren<BoxCollider>();
     }
 
         private void OnDestroy()
@@ -128,7 +172,7 @@ namespace Runtime.Build
             ToggleDeleteMode();
         }
 
-        if (!TryGetPointerState(out Vector2 pointerScreenPosition, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed))
+        if (!TryGetPointerState(out Vector2 pointerScreenPosition, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed, out int pointerId))
         {
             return;
         }
@@ -137,22 +181,42 @@ namespace Runtime.Build
         {
             pointerIsDown = true;
             pointerMovedAsDrag = false;
+            activePointerId = pointerId;
             pointerDownScreenPosition = pointerScreenPosition;
             pointerLastScreenPosition = pointerScreenPosition;
             pointerDownTime = Time.unscaledTime;
+            pointerBlockedByUi = IsPointerOverUi(activePointerId, pointerScreenPosition);
         }
 
         if (pointerIsDown && isPressed)
         {
+            if (IsPointerOverUi(activePointerId, pointerScreenPosition))
+            {
+                pointerBlockedByUi = true;
+            }
+
+            if (pointerBlockedByUi)
+            {
+                pointerLastScreenPosition = pointerScreenPosition;
+                return;
+            }
+
             if (!pointerMovedAsDrag)
             {
                 float tapMoveThresholdSqr = tapMaxMovementPixels * tapMaxMovementPixels;
                 pointerMovedAsDrag = (pointerScreenPosition - pointerDownScreenPosition).sqrMagnitude > tapMoveThresholdSqr;
             }
 
-            if (pointerMovedAsDrag && enableCameraPan)
+            if (enableCameraPan)
             {
-                PanCamera(pointerLastScreenPosition, pointerScreenPosition);
+                float panThreshold = Mathf.Max(tapMaxMovementPixels, cameraPanStartPixels);
+                float panThresholdSqr = panThreshold * panThreshold;
+                float dragDistanceSqr = (pointerScreenPosition - pointerDownScreenPosition).sqrMagnitude;
+
+                if (dragDistanceSqr > panThresholdSqr)
+                {
+                    PanCamera(pointerLastScreenPosition, pointerScreenPosition);
+                }
             }
 
             pointerLastScreenPosition = pointerScreenPosition;
@@ -168,13 +232,16 @@ namespace Runtime.Build
             && Time.unscaledTime - pointerDownTime <= tapMaxDurationSeconds;
 
         pointerIsDown = false;
+        bool blockedByUiThisGesture = pointerBlockedByUi;
+        pointerBlockedByUi = false;
+        activePointerId = -1;
 
         if (!isTap)
         {
             return;
         }
 
-        if (IsPointerOverUi())
+        if (blockedByUiThisGesture || IsPointerOverUi(pointerId, pointerScreenPosition))
         {
             return;
         }
@@ -415,6 +482,35 @@ namespace Runtime.Build
 
         Vector3 delta = toWorld - fromWorld;
         buildCamera.transform.position += new Vector3(delta.x, 0f, delta.z);
+        ClampBuildCameraPosition();
+    }
+
+        private void ClampBuildCameraPosition()
+        {
+        if (!clampCameraToBounds || buildCamera == null)
+        {
+            return;
+        }
+
+        Vector3 cameraPosition = buildCamera.transform.position;
+
+        if (cameraBoundsCollider != null)
+        {
+            Bounds bounds = cameraBoundsCollider.bounds;
+            cameraPosition.x = Mathf.Clamp(cameraPosition.x, bounds.min.x, bounds.max.x);
+            cameraPosition.z = Mathf.Clamp(cameraPosition.z, bounds.min.z, bounds.max.z);
+        }
+        else if (useColliderBoundsOnly)
+        {
+            return;
+        }
+        else
+        {
+            cameraPosition.x = Mathf.Clamp(cameraPosition.x, Mathf.Min(cameraMinXZ.x, cameraMaxXZ.x), Mathf.Max(cameraMinXZ.x, cameraMaxXZ.x));
+            cameraPosition.z = Mathf.Clamp(cameraPosition.z, Mathf.Min(cameraMinXZ.y, cameraMaxXZ.y), Mathf.Max(cameraMinXZ.y, cameraMaxXZ.y));
+        }
+
+        buildCamera.transform.position = cameraPosition;
     }
 
         private bool TryScreenToGroundPoint(Vector2 screenPosition, out Vector3 worldPoint)
@@ -770,35 +866,44 @@ namespace Runtime.Build
         SelectionChanged?.Invoke(selectedPlacementId);
     }
 
-        private static bool IsPointerOverUi()
+        private static bool IsPointerOverUi(int pointerId, Vector2 screenPosition)
         {
         if (EventSystem.current == null)
         {
             return false;
         }
 
-        if (Touchscreen.current != null)
+        if (pointerId >= 0 && EventSystem.current.IsPointerOverGameObject(pointerId))
         {
-            var touch = Touchscreen.current.primaryTouch;
-            if (touch.press.isPressed)
-            {
-                int touchId = touch.touchId.ReadValue();
-                if (EventSystem.current.IsPointerOverGameObject(touchId))
-                {
-                    return true;
-                }
-            }
+            return true;
         }
 
-        return EventSystem.current.IsPointerOverGameObject();
+        if (EventSystem.current.IsPointerOverGameObject())
+        {
+            return true;
+        }
+
+        UiRaycastResults.Clear();
+        var eventData = new PointerEventData(EventSystem.current)
+        {
+            position = screenPosition
+        };
+        EventSystem.current.RaycastAll(eventData, UiRaycastResults);
+        return UiRaycastResults.Count > 0;
     }
 
-        private static bool TryGetPointerState(out Vector2 position, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed)
+        private static bool TryGetPointerState(
+            out Vector2 position,
+            out bool pressedThisFrame,
+            out bool releasedThisFrame,
+            out bool isPressed,
+            out int pointerId)
         {
         position = default;
         pressedThisFrame = false;
         releasedThisFrame = false;
         isPressed = false;
+        pointerId = -1;
 
         if (Touchscreen.current != null)
         {
@@ -807,6 +912,7 @@ namespace Runtime.Build
             pressedThisFrame = touch.press.wasPressedThisFrame;
             releasedThisFrame = touch.press.wasReleasedThisFrame;
             isPressed = touch.press.isPressed;
+            pointerId = touch.touchId.ReadValue();
             return true;
         }
 
