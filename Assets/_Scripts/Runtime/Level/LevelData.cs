@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,9 +8,11 @@ public class LevelData : ScriptableObject
     [SerializeField, Min(1)] private int width = 5;
     [SerializeField, Min(1)] private int height = 5;
     [SerializeField] private List<CellData> cells = new List<CellData>();
+    [SerializeField, Min(0)] private int optimalSteps = 0; // Số bước tối ưu
 
     public int Width => width;
     public int Height => height;
+    public int OptimalSteps => optimalSteps; // Property mới
 
     public int CellCount => width * height;
 

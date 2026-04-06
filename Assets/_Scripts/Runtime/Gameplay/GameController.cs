@@ -1,5 +1,5 @@
+﻿using System;
 using System.Collections.Generic;
-using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -17,6 +17,7 @@ public class GameController : MonoBehaviour
     [SerializeField] private Button nextLevelButton;
     [SerializeField] private Button backButton;
     [SerializeField] private Button resetButton;
+    [SerializeField] private StepCounterUI stepCounterUI; // Thêm dòng này
 
     [Header("Prefabs")]
     [SerializeField] private GameObject floorLightPrefab;
@@ -57,16 +58,26 @@ public class GameController : MonoBehaviour
     private bool inputBlocked;
 
     private int lastAdvanceFrame = -1;
+    
+    private StepCounter stepCounter; // Thêm dòng này
 
     public int CurrentLevelIndex => currentLevelIndex;
     public int TotalLevelCount => levelListData != null ? levelListData.Count : 0;
     public int StartingLevelIndex => Mathf.Max(0, startingLevelIndex);
+    public StepCounter StepCounter => stepCounter; // Thêm property này
 
     private void Awake()
     {
         if (swipeInputReader == null)
         {
             swipeInputReader = FindFirstObjectByType<SwipeInputReader>();
+        }
+        
+        // Khởi tạo StepCounter
+        stepCounter = gameObject.AddComponent<StepCounter>();
+        if (stepCounterUI != null)
+        {
+            stepCounterUI.Initialize(stepCounter);
         }
     }
 
@@ -147,7 +158,15 @@ public class GameController : MonoBehaviour
         completed = false;
         gridState = LevelLoader.Load(currentLevelData);
         moveHistory.Clear();
+        
+        // Khởi tạo step counter với số bước tối ưu từ level data
+        if (stepCounter != null)
+        {
+            stepCounter.Initialize(currentLevelData.OptimalSteps);
+        }
+        
         SetBackButtonVisible(true);
+        SetResetButtonVisible(true);
         SetResetButtonVisible(true);
         SetNextLevelButtonVisible(false);
         UpdateLevelLabel();
@@ -191,6 +210,13 @@ public class GameController : MonoBehaviour
         }
 
         moveHistory.Push(moveResult);
+        
+        // Tăng số bước khi di chuyển thành công
+        if (stepCounter != null)
+        {
+            stepCounter.IncrementStep();
+        }
+        
         UpdateBackButtonState();
 
         if (moveResult.pushedBox)
@@ -207,7 +233,8 @@ public class GameController : MonoBehaviour
         if (WinChecker.IsLevelComplete(gridState))
         {
             completed = true;
-            Debug.Log("Level completed.");
+            int starsEarned = stepCounter != null ? stepCounter.GetStarsEarned() : 3;
+            Debug.Log($"Level completed with {stepCounter?.CurrentSteps} steps! Stars earned: {starsEarned}");
             onLevelCompleted?.Invoke();
             LevelCompleted?.Invoke(currentLevelIndex);
             SetNextLevelButtonVisible(HasNextLevel());
@@ -239,6 +266,12 @@ public class GameController : MonoBehaviour
         }
 
         MovementResolver.MoveResult lastMove = moveHistory.Pop();
+        
+        // Giảm số bước khi undo
+        if (stepCounter != null)
+        {
+            stepCounter.DecrementStep();
+        }
 
         if (lastMove.pushedBox)
         {
