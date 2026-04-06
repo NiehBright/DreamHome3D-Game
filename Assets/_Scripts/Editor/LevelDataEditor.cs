@@ -44,6 +44,23 @@ public class LevelDataEditor : Editor
     {
         EditorGUILayout.LabelField("Edit Level", EditorStyles.boldLabel);
 
+        SerializedObject serializedLevel = new SerializedObject(levelData);
+        SerializedProperty optimalStepsProp = serializedLevel.FindProperty("optimalSteps");
+        SerializedProperty coinRewardProp = serializedLevel.FindProperty("coinReward");
+
+        if (optimalStepsProp != null)
+        {
+            EditorGUILayout.PropertyField(optimalStepsProp, new GUIContent("Optimal Steps"));
+        }
+
+        if (coinRewardProp != null)
+        {
+            EditorGUILayout.PropertyField(coinRewardProp, new GUIContent("Coin Reward"));
+        }
+
+        serializedLevel.ApplyModifiedProperties();
+        EditorGUILayout.Space();
+
         int newWidth = Mathf.Max(1, EditorGUILayout.IntField("Width", levelData.Width));
         int newHeight = Mathf.Max(1, EditorGUILayout.IntField("Height", levelData.Height));
 

@@ -1,5 +1,6 @@
+﻿using System;
 using System.Collections.Generic;
-using System;
+using Runtime.Build;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -17,6 +18,7 @@ public class GameController : MonoBehaviour
     [SerializeField] private Button nextLevelButton;
     [SerializeField] private Button backButton;
     [SerializeField] private Button resetButton;
+    [SerializeField] private StepCounterUI stepCounterUI; // Thêm dòng này
 
     [Header("Prefabs")]
     [SerializeField] private GameObject floorLightPrefab;
@@ -41,6 +43,12 @@ public class GameController : MonoBehaviour
     [Header("Events")]
     [SerializeField] private UnityEvent onLevelCompleted;
 
+    [Header("Rewards")]
+    [SerializeField] private CurrencyWallet currencyWallet;
+    [SerializeField, Min(0)] private int threeStarBonusCoins = 10;
+    [SerializeField, Min(0)] private int twoStarBonusCoins = 7;
+    [SerializeField, Min(0)] private int oneStarBonusCoins = 5;
+
     public event Action<int> LevelLoaded;
     public event Action<int> LevelCompleted;
 
@@ -57,16 +65,43 @@ public class GameController : MonoBehaviour
     private bool inputBlocked;
 
     private int lastAdvanceFrame = -1;
+    private int lastCompletedCoinsAwarded;
+    private int lastCompletedLevelCoinsAwarded;
+    private int lastCompletedStarBonusCoinsAwarded;
+    
+    private StepCounter stepCounter; // Thêm dòng này
 
     public int CurrentLevelIndex => currentLevelIndex;
     public int TotalLevelCount => levelListData != null ? levelListData.Count : 0;
     public int StartingLevelIndex => Mathf.Max(0, startingLevelIndex);
+    public StepCounter StepCounter => stepCounter; // Thêm property này
+    public int LastCompletedCoinsAwarded => lastCompletedCoinsAwarded;
+    public int LastCompletedLevelCoinsAwarded => lastCompletedLevelCoinsAwarded;
+    public int LastCompletedStarBonusCoinsAwarded => lastCompletedStarBonusCoinsAwarded;
+    public int CurrentWalletCoins => currencyWallet != null ? currencyWallet.Coins : 0;
 
     private void Awake()
     {
         if (swipeInputReader == null)
         {
             swipeInputReader = FindFirstObjectByType<SwipeInputReader>();
+        }
+
+        if (stepCounterUI == null)
+        {
+            stepCounterUI = FindFirstObjectByType<StepCounterUI>();
+        }
+
+        if (currencyWallet == null)
+        {
+            currencyWallet = FindFirstObjectByType<CurrencyWallet>();
+        }
+        
+        // Khởi tạo StepCounter
+        stepCounter = gameObject.AddComponent<StepCounter>();
+        if (stepCounterUI != null)
+        {
+            stepCounterUI.Initialize(stepCounter);
         }
     }
 
@@ -145,9 +180,20 @@ public class GameController : MonoBehaviour
         }
 
         completed = false;
+        lastCompletedCoinsAwarded = 0;
+        lastCompletedLevelCoinsAwarded = 0;
+        lastCompletedStarBonusCoinsAwarded = 0;
         gridState = LevelLoader.Load(currentLevelData);
         moveHistory.Clear();
+        
+        // Khởi tạo step counter với số bước tối ưu từ level data
+        if (stepCounter != null)
+        {
+            stepCounter.Initialize(currentLevelData.OptimalSteps);
+        }
+        
         SetBackButtonVisible(true);
+        SetResetButtonVisible(true);
         SetResetButtonVisible(true);
         SetNextLevelButtonVisible(false);
         UpdateLevelLabel();
@@ -191,6 +237,13 @@ public class GameController : MonoBehaviour
         }
 
         moveHistory.Push(moveResult);
+        
+        // Tăng số bước khi di chuyển thành công
+        if (stepCounter != null)
+        {
+            stepCounter.IncrementStep();
+        }
+        
         UpdateBackButtonState();
 
         if (moveResult.pushedBox)
@@ -207,7 +260,9 @@ public class GameController : MonoBehaviour
         if (WinChecker.IsLevelComplete(gridState))
         {
             completed = true;
-            Debug.Log("Level completed.");
+            int starsEarned = stepCounter != null ? stepCounter.GetStarsEarned() : 3;
+            lastCompletedCoinsAwarded = AwardLevelCompletionCoins(starsEarned);
+            Debug.Log($"Level completed with {stepCounter?.CurrentSteps} steps! Stars earned: {starsEarned}, coins +{lastCompletedCoinsAwarded}");
             onLevelCompleted?.Invoke();
             LevelCompleted?.Invoke(currentLevelIndex);
             SetNextLevelButtonVisible(HasNextLevel());
@@ -239,6 +294,12 @@ public class GameController : MonoBehaviour
         }
 
         MovementResolver.MoveResult lastMove = moveHistory.Pop();
+        
+        // Giảm số bước khi undo
+        if (stepCounter != null)
+        {
+            stepCounter.DecrementStep();
+        }
 
         if (lastMove.pushedBox)
         {
@@ -401,6 +462,57 @@ public class GameController : MonoBehaviour
     private void HandleNextLevelButtonClicked()
     {
         LoadNextLevel();
+    }
+
+    private int AwardLevelCompletionCoins(int starsEarned)
+    {
+        if (currentLevelData == null)
+        {
+            return 0;
+        }
+
+        int levelReward = Mathf.Max(0, currentLevelData.CoinReward);
+        int starBonusReward = GetStarBonusCoins(starsEarned);
+        int reward = levelReward + starBonusReward;
+        if (reward <= 0)
+        {
+            lastCompletedLevelCoinsAwarded = 0;
+            lastCompletedStarBonusCoinsAwarded = 0;
+            return 0;
+        }
+
+        if (currencyWallet == null)
+        {
+            currencyWallet = FindFirstObjectByType<CurrencyWallet>();
+        }
+
+        if (currencyWallet == null)
+        {
+            Debug.LogWarning("CurrencyWallet not found. Coin reward is skipped.");
+            lastCompletedLevelCoinsAwarded = 0;
+            lastCompletedStarBonusCoinsAwarded = 0;
+            return 0;
+        }
+
+        currencyWallet.Add(reward);
+        lastCompletedLevelCoinsAwarded = levelReward;
+        lastCompletedStarBonusCoinsAwarded = starBonusReward;
+        return reward;
+    }
+
+    private int GetStarBonusCoins(int starsEarned)
+    {
+        if (starsEarned >= 3)
+        {
+            return Mathf.Max(0, threeStarBonusCoins);
+        }
+
+        if (starsEarned == 2)
+        {
+            return Mathf.Max(0, twoStarBonusCoins);
+        }
+
+        return Mathf.Max(0, oneStarBonusCoins);
     }
 
     private Transform SpawnIfAssigned(GameObject prefab, Vector3 worldPosition, string fallbackName, Transform parent, float scale = 1f)
