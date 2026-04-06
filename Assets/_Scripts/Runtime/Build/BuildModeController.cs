@@ -18,6 +18,11 @@ namespace Runtime.Build
         [SerializeField] private FurnitureCatalogData catalog;
         [SerializeField] private CurrencyWallet wallet;
 
+        [Header("Default Room Visuals")]
+        [SerializeField] private FurnitureItemData defaultLeftWallItem;
+        [SerializeField] private FurnitureItemData defaultRightWallItem;
+        [SerializeField] private Vector3 roomWallOffset = Vector3.zero;
+
         [Header("Grid")]
         [SerializeField, Min(1)] private int gridWidth = 8;
         [SerializeField, Min(1)] private int gridHeight = 8;
@@ -81,6 +86,7 @@ namespace Runtime.Build
         private Material runtimeGridLightMaterial;
         private Material runtimeGridDarkMaterial;
         private bool gridVisible = true;
+        private Transform roomWallRoot;
         private bool pointerIsDown;
         private bool pointerMovedAsDrag;
         private bool pointerBlockedByUi;
@@ -103,6 +109,7 @@ namespace Runtime.Build
             public PlacedFurnitureData data;
             public FurnitureItemData item;
             public Transform view;
+            public bool isWallVisual;
         }
 
         private class PreviewState
@@ -126,6 +133,7 @@ namespace Runtime.Build
         TryAutoAssignBoundsCollider();
 
         CreateGridState();
+        BuildRoomWallsVisual();
         BuildGridVisual();
         ApplyGridVisibility();
         LoadFromSave();
@@ -190,6 +198,7 @@ namespace Runtime.Build
         private void OnDestroy()
         {
         ClearGridVisual();
+        ClearRoomWallsVisual();
 
         if (runtimeGridLightMaterial != null)
         {
@@ -303,19 +312,26 @@ namespace Runtime.Build
 
         private void HandleTap(Vector2 pointerScreenPosition)
         {
-        if (!TryGetGridCell(pointerScreenPosition, out Vector2Int cell))
-        {
-            return;
-        }
-
         if (isDeleteMode)
         {
-            if (gridState.TryGetPlacementAtCell(cell, out string deletePlacementId))
+            if (TryGetPlacementAtPointer(pointerScreenPosition, out string deletePlacementId))
             {
                 RemovePlacement(deletePlacementId, true);
                 SaveIfNeeded();
             }
 
+            if (TryGetGridCell(pointerScreenPosition, out Vector2Int deleteCell)
+                && gridState.TryGetPlacementAtCell(deleteCell, out string deleteCellPlacementId))
+            {
+                RemovePlacement(deleteCellPlacementId, true);
+                SaveIfNeeded();
+            }
+
+            return;
+        }
+
+        if (!TryGetGridCell(pointerScreenPosition, out Vector2Int cell))
+        {
             return;
         }
 
@@ -879,25 +895,154 @@ namespace Runtime.Build
             return;
         }
 
+        if (runtimePlacement.isWallVisual)
+        {
+            if (selectedPlacementId == placementId)
+            {
+                SetSelectedPlacement(null);
+            }
+
+            if (runtimePlacement.view != null)
+            {
+                Destroy(runtimePlacement.view.gameObject);
+            }
+
+            runtimePlacements.Remove(placementId);
+            return;
+        }
+
         if (selectedPlacementId == placementId)
         {
             SetSelectedPlacement(null);
         }
 
-        gridState.RemovePlacement(placementId, runtimePlacement.item);
+        if (runtimePlacement.item != null)
+        {
+            gridState.RemovePlacement(placementId, runtimePlacement.item);
+        }
 
         if (runtimePlacement.view != null)
         {
             Destroy(runtimePlacement.view.gameObject);
         }
 
-        if (refund && wallet != null)
+        if (refund && wallet != null && runtimePlacement.item != null)
         {
             int refundAmount = Mathf.RoundToInt(runtimePlacement.item.Price * deleteRefundRate);
             wallet.Add(refundAmount);
         }
 
         runtimePlacements.Remove(placementId);
+    }
+
+        private void BuildRoomWallsVisual()
+        {
+        ClearRoomWallsVisual();
+
+        roomWallRoot = new GameObject("BuildRoomWalls").transform;
+        roomWallRoot.SetParent(buildRoot != null ? buildRoot : transform, false);
+        roomWallRoot.position = gridOrigin + roomWallOffset;
+
+        CreateWallVisual("default_wall_left", defaultLeftWallItem, true);
+        CreateWallVisual("default_wall_right", defaultRightWallItem, false);
+    }
+
+        private void CreateWallVisual(string placementId, FurnitureItemData item, bool isLeftWall)
+        {
+        GameObject wallObject = null;
+
+        if (item != null && item.Prefab != null)
+        {
+            wallObject = Instantiate(item.Prefab, roomWallRoot);
+        }
+        else
+        {
+            wallObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wallObject.transform.SetParent(roomWallRoot, false);
+        }
+
+        wallObject.name = placementId;
+        wallObject.transform.localScale = new Vector3(
+            Mathf.Max(0.2f, cellSize * 0.35f),
+            Mathf.Max(1.5f, cellSize * 2f),
+            Mathf.Max(1f, gridHeight * cellSize));
+        wallObject.transform.localPosition = new Vector3(
+            isLeftWall ? -0.5f * cellSize : gridWidth * cellSize + 0.5f * cellSize,
+            Mathf.Max(1f, cellSize),
+            gridHeight * cellSize * 0.5f);
+        wallObject.transform.localRotation = isLeftWall ? Quaternion.Euler(0f, 90f, 0f) : Quaternion.Euler(0f, 270f, 0f);
+
+        RuntimePlacement placement = new RuntimePlacement
+        {
+            data = null,
+            item = item,
+            view = wallObject.transform,
+            isWallVisual = true
+        };
+
+        runtimePlacements[placementId] = placement;
+    }
+
+        private void ClearRoomWallsVisual()
+        {
+        if (roomWallRoot != null)
+        {
+            Destroy(roomWallRoot.gameObject);
+            roomWallRoot = null;
+        }
+
+        runtimePlacements.Remove("default_wall_left");
+        runtimePlacements.Remove("default_wall_right");
+    }
+
+        private bool TryGetPlacementAtPointer(Vector2 pointerScreenPosition, out string placementId)
+        {
+        placementId = null;
+
+        if (buildCamera == null)
+        {
+            return false;
+        }
+
+        Ray ray = buildCamera.ScreenPointToRay(pointerScreenPosition);
+        RaycastHit[] hits = Physics.RaycastAll(ray, 200f);
+        if (hits == null || hits.Length == 0)
+        {
+            return false;
+        }
+
+        Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            if (TryResolvePlacementFromTransform(hits[i].transform, out placementId))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+        private bool TryResolvePlacementFromTransform(Transform hitTransform, out string placementId)
+        {
+        foreach (KeyValuePair<string, RuntimePlacement> pair in runtimePlacements)
+        {
+            RuntimePlacement placement = pair.Value;
+            if (placement.view == null)
+            {
+                continue;
+            }
+
+            if (hitTransform == placement.view || hitTransform.IsChildOf(placement.view))
+            {
+                placementId = pair.Key;
+                return true;
+            }
+        }
+
+        placementId = null;
+        return false;
     }
 
         private void CreateGridState()
@@ -982,6 +1127,11 @@ namespace Runtime.Build
 
         foreach (RuntimePlacement placement in runtimePlacements.Values)
         {
+            if (placement.isWallVisual || placement.data == null)
+            {
+                continue;
+            }
+
             data.placedFurniture.Add(placement.data);
         }
 
