@@ -3,6 +3,9 @@ using UnityEngine;
 
 public class StepCounter : MonoBehaviour
 {
+    private const int TwoStarMaxSteps = 20;
+    private const int OneStarMaxSteps = 30;
+
     public event Action<int> OnStepCountChanged;
     public event Action<int, int> OnOptimalStepsCompared; // currentSteps, optimalSteps
 
@@ -61,10 +64,8 @@ public class StepCounter : MonoBehaviour
 
     public int GetStarsEarned()
     {
-        if (optimalSteps <= 0) return 3;
-
-        if (currentSteps <= optimalSteps) return 3;
-        if (currentSteps <= optimalSteps * 1.5f) return 2;
+        if (currentSteps <= TwoStarMaxSteps) return 3;
+        if (currentSteps <= OneStarMaxSteps) return 2;
         return 1;
     }
 }

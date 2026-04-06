@@ -60,8 +60,10 @@ public class StepCounterUI : MonoBehaviour
     {
         if (stepCountText != null)
         {
-            stepCountText.text = steps.ToString();
+            stepCountText.text = $"Steps: {steps}";
         }
+
+        UpdateStarDisplay();
     }
 
     private void UpdateOptimalDisplay()
@@ -78,6 +80,8 @@ public class StepCounterUI : MonoBehaviour
                 optimalStepsText.gameObject.SetActive(false);
             }
         }
+
+        UpdateStarDisplay();
     }
 
     private void UpdateOptimalComparison(int currentSteps, int optimalSteps)
