@@ -11,6 +11,7 @@ public class LevelData : ScriptableObject
     [SerializeField, Min(0)] private int optimalSteps = 0; // Số bước tối ưu
     [SerializeField, Min(0)] private int coinReward = 50;
 
+
     public int Width => width;
     public int Height => height;
     public int OptimalSteps => optimalSteps; // Property mới
@@ -106,6 +107,11 @@ public class LevelData : ScriptableObject
 
     private void OnValidate()
     {
+        // Clamp width/height to valid range
+        width = Mathf.Max(1, width);
+        height = Mathf.Max(1, height);
+
+
         EnsureGridSize();
         Normalize();
     }

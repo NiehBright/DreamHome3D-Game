@@ -61,14 +61,16 @@ public class LevelDataEditor : Editor
         serializedLevel.ApplyModifiedProperties();
         EditorGUILayout.Space();
 
-        int newWidth = Mathf.Max(1, EditorGUILayout.IntField("Width", levelData.Width));
-        int newHeight = Mathf.Max(1, EditorGUILayout.IntField("Height", levelData.Height));
+        EditorGUILayout.LabelField("Grid Size", EditorStyles.boldLabel);
+        int gridSize = Mathf.Max(1, EditorGUILayout.IntField("Size (creates NxN grid)", levelData.Width));
 
-        if ((newWidth != levelData.Width || newHeight != levelData.Height) && GUILayout.Button("Resize Grid"))
+        if ((gridSize != levelData.Width || gridSize != levelData.Height) && GUILayout.Button("Apply Size"))
         {
             Undo.RecordObject(levelData, "Resize Level Grid");
-            levelData.Resize(newWidth, newHeight);
+            levelData.Resize(gridSize, gridSize);
             EditorUtility.SetDirty(levelData);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
         }
     }
 
@@ -80,6 +82,13 @@ public class LevelDataEditor : Editor
         float gridHeight = levelData.Height * CellSize;
         Rect gridRect = GUILayoutUtility.GetRect(gridWidth, gridHeight);
 
+        // Guard: ensure cells list is properly sized before drawing
+        if (levelData.Width * levelData.Height != gridWidth / CellSize * gridHeight / CellSize)
+        {
+            EditorGUILayout.HelpBox("Grid size mismatch. Click 'Apply Size' to fix.", MessageType.Warning);
+            return;
+        }
+
         for (int y = 0; y < levelData.Height; y++)
         {
             for (int x = 0; x < levelData.Width; x++)
@@ -87,6 +96,8 @@ public class LevelDataEditor : Editor
                 var logicalPos = new Vector2Int(x, y);
                 Rect cellRect = GetCellRect(gridRect, logicalPos, levelData.Height);
 
+                try
+                {
                 CellData cell = levelData.GetCell(x, y);
                 DrawCellVisual(cellRect, cell);
 
@@ -95,6 +106,12 @@ public class LevelDataEditor : Editor
                     Undo.RecordObject(levelData, "Paint Level Cell");
                     PaintCell(levelData, logicalPos);
                     evt.Use();
+                }
+                }
+                catch (System.IndexOutOfRangeException)
+                {
+                    // Cell not available - draw placeholder
+                    EditorGUI.DrawRect(cellRect, new Color(0.5f, 0.2f, 0.2f, 0.5f));
                 }
             }
         }
