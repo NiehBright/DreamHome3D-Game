@@ -15,7 +15,7 @@ MonoBehaviour:
   itemId: wall_left
   displayName: Wall Left
   size: {x: 1, y: 1}
-  canRotate: 0
+  canRotate: 1
   price: 50
   prefab: {fileID: 745092559247019196, guid: 2e097ca94c95d0c4eaf760bd0a581893, type: 3}
   shopIcon: {fileID: 0}

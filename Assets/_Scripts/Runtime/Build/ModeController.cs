@@ -88,6 +88,7 @@ namespace Runtime.Build
             if (buildModeController != null)
             {
                 buildModeController.SetBuildActive(isBuild);
+                // Keep floor/grid visuals visible in Main + Build; BuildModeController controls line-only visibility.
                 buildModeController.SetGridVisible(isMain || isBuild);
             }
         }
