@@ -15,8 +15,8 @@ MonoBehaviour:
   itemId: wall_right
   displayName: Wall Right
   size: {x: 1, y: 1}
-  canRotate: 0
+  canRotate: 1
   price: 50
-  prefab: {fileID: 3365399835859098524, guid: 2f7019f00b02c4f669d90ba93b03a52a, type: 3}
+  prefab: {fileID: 745092559247019196, guid: 2e097ca94c95d0c4eaf760bd0a581893, type: 3}
+  shopIcon: {fileID: 0}
   visualRotationOffsetDegrees: 0
-

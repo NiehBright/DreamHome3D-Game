@@ -12,5 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 066cf82f8f80d408c856e48fc8f1127b, type: 3}
   m_Name: vFavorites Data
   m_EditorClassIdentifier: VFavorites::VFavorites.VFavoritesData
-  pages: []
+  pages:
+  - items:
+    - globalId:
+        globalObjectIdString: GlobalObjectId_V1-1-3615fe0404404ca29b91ab093f59d821-102900000-0
+      _typeString: UnityEditor.DefaultAsset, UnityEditor.CoreModule, Version=0.0.0.0,
+        Culture=neutral, PublicKeyToken=null
+      _obj: {fileID: 102900000, guid: 3615fe0404404ca29b91ab093f59d821, type: 3}
+      isSceneGameObject: 0
+      isFolder: 1
+      isAsset: 0
+      _id: 1057363979
+    name: Page 1
+    _id: 1062962524
+  - items: []
+    name: Page 2
+    _id: 0
   rowScale: 1

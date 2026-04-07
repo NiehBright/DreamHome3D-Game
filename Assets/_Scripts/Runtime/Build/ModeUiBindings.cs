@@ -26,6 +26,7 @@ namespace Runtime.Build
         [SerializeField] private RectTransform furnitureContextPanel;
         [SerializeField] private Button contextRotateButton;
         [SerializeField] private Button contextDeleteButton;
+        [SerializeField] private Button contextCancelButton;
         [SerializeField] private Vector2 contextPanelScreenOffset = new Vector2(0f, 120f);
 
         private RectTransform contextPanelParent;
@@ -57,6 +58,7 @@ namespace Runtime.Build
             AddListener(deleteButton, HandleDeleteButton);
             AddListener(contextRotateButton, HandleContextRotateButton);
             AddListener(contextDeleteButton, HandleContextDeleteButton);
+            AddListener(contextCancelButton, HandleContextCancelButton);
 
             AddListener(puzzleExitButton, HandleExitToMainButton);
 
@@ -83,6 +85,7 @@ namespace Runtime.Build
             RemoveListener(deleteButton, HandleDeleteButton);
             RemoveListener(contextRotateButton, HandleContextRotateButton);
             RemoveListener(contextDeleteButton, HandleContextDeleteButton);
+            RemoveListener(contextCancelButton, HandleContextCancelButton);
 
             RemoveListener(puzzleExitButton, HandleExitToMainButton);
 
@@ -123,17 +126,47 @@ namespace Runtime.Build
 
         private void HandleRotateButton()
         {
-            buildModeController?.RotatePreview();
+            if (buildModeController == null)
+            {
+                return;
+            }
+
+            if (buildModeController.HasSelectedPlacement)
+            {
+                buildModeController.RotateSelectedPlacement();
+                return;
+            }
+
+            buildModeController.RotatePreview();
         }
 
         private void HandleCancelButton()
         {
-            buildModeController?.CancelPlacement();
+            if (buildModeController == null)
+            {
+                return;
+            }
+
+            if (buildModeController.HasSelectedPlacement)
+            {
+                buildModeController.ClearSelection();
+                return;
+            }
+
+            buildModeController.CancelPlacement();
         }
 
         private void HandleDeleteButton()
         {
-            buildModeController?.DeleteSelected();
+            if (buildModeController == null)
+            {
+                return;
+            }
+
+            if (buildModeController.HasSelectedPlacement)
+            {
+                buildModeController.DeleteSelectedPlacement();
+            }
         }
 
         private void HandleContextRotateButton()
@@ -144,6 +177,11 @@ namespace Runtime.Build
         private void HandleContextDeleteButton()
         {
             buildModeController?.DeleteSelectedPlacement();
+        }
+
+        private void HandleContextCancelButton()
+        {
+            buildModeController?.ClearSelection();
         }
 
         private void HandleSelectionChanged(string _)
@@ -210,6 +248,7 @@ namespace Runtime.Build
         {
             if (button != null)
             {
+                button.onClick.RemoveListener(action);
                 button.onClick.AddListener(action);
             }
         }

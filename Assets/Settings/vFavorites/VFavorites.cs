@@ -894,15 +894,59 @@ namespace VFavorites
             void openFolder(EditorWindow browser, string path)
             {
                 var folderAsset = AssetDatabase.LoadAssetAtPath<Object>(path);
+                if (!folderAsset || browser == null)
+                {
+                    return;
+                }
 
-                if (browser.GetFieldValue<int>("m_ViewMode") == 1)
-                    browser.InvokeMethod("SetFolderSelection", new[] { folderAsset.GetInstanceID() }, false);
-                else
+                bool TrySetFolderSelectionCompat(EditorWindow targetBrowser, int folderInstanceId)
+                {
+                    var flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+                    var browserType = targetBrowser.GetType();
+
+                    var methodWithReveal = browserType.GetMethod("SetFolderSelection", flags, null, new[] { typeof(int[]), typeof(bool) }, null);
+                    if (methodWithReveal != null)
+                    {
+                        methodWithReveal.Invoke(targetBrowser, new object[] { new[] { folderInstanceId }, false });
+                        return true;
+                    }
+
+                    var methodWithoutReveal = browserType.GetMethod("SetFolderSelection", flags, null, new[] { typeof(int[]) }, null);
+                    if (methodWithoutReveal != null)
+                    {
+                        methodWithoutReveal.Invoke(targetBrowser, new object[] { new[] { folderInstanceId } });
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                if (browser.GetFieldValue<int>("m_ViewMode", false) == 1)
                 {
                     Selection.activeObject = folderAsset;
+                    try
+                    {
+                        if (!TrySetFolderSelectionCompat(browser, folderAsset.GetInstanceID()))
+                        {
+                            OpenFolder(path);
+                        }
+                    }
+                    catch
+                    {
+                        OpenFolder(path);
+                    }
+                    return;
+                }
 
-                    browser.GetMemberValue("m_AssetTree")?.GetPropertyValue("data")?.InvokeMethod("SetExpanded", folderAsset.GetInstanceID(), true);
+                Selection.activeObject = folderAsset;
 
+                try
+                {
+                    browser.GetMemberValue("m_AssetTree", false)?.GetPropertyValue("data", false)?.InvokeMethod("SetExpanded", folderAsset.GetInstanceID(), true);
+                }
+                catch
+                {
+                    // Ignore Unity internal API changes; selecting the folder is enough.
                 }
 
             }
