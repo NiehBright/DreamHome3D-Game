@@ -7,7 +7,7 @@ namespace Runtime.Build
     {
         [SerializeField] private CurrencyWallet wallet;
         [SerializeField] private TMP_Text coinText;
-        [SerializeField] private string prefix = "Coin: ";
+        [SerializeField] private string prefix = "";
 
         private void Awake()
         {
@@ -43,4 +43,3 @@ namespace Runtime.Build
         }
     }
 }
-

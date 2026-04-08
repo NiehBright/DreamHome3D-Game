@@ -55,6 +55,7 @@ namespace _Scripts.Runtime.Gameplay
 
         [Header("Movement")]
         [SerializeField, Min(0.01f)] private float moveStepDuration = 0.08f;
+        [SerializeField] private bool allowCompletion = true;
 
         private GameObject _runtimeRoot;
         private GameObject _boardRoot;
@@ -150,9 +151,29 @@ namespace _Scripts.Runtime.Gameplay
             }
         }
 
+        private void EnsureSwipeReaderActive()
+        {
+            if (swipeInputReader != null && swipeInputReader.isActiveAndEnabled)
+            {
+                return;
+            }
+
+            swipeInputReader = FindFirstObjectByType<SwipeInputReader>();
+            if (swipeInputReader != null && swipeInputReader.isActiveAndEnabled)
+            {
+                return;
+            }
+
+            if (createDedicatedSwipeReaderIfMissing)
+            {
+                GameObject inputObject = new GameObject("PuzzlePaintSwipeInputReader");
+                swipeInputReader = inputObject.AddComponent<SwipeInputReader>();
+            }
+        }
+
         private void LoadLevels()
         {
-            if (useManualLevelListOrder && manualLevelListData != null && manualLevelListData.Count > 0)
+            if (manualLevelListData != null && manualLevelListData.Count > 0)
             {
                 _levels = manualLevelListData
                     .GetAllLevelsOrdered()
@@ -161,18 +182,21 @@ namespace _Scripts.Runtime.Gameplay
                 return;
             }
 
-            if (!autoLoadLevelsFromResources)
+            if (autoLoadLevelsFromResources)
             {
-                _levels = Array.Empty<PuzzlePaintLevelData>();
+                string resourcePath = string.IsNullOrWhiteSpace(levelsResourcePath)
+                    ? DefaultLevelsResourcePath
+                    : levelsResourcePath;
+
+                _levels = Resources.LoadAll<PuzzlePaintLevelData>(resourcePath)
+                    .Where(level => level != null)
+                    .OrderBy(level => GetLevelSortKey(level.name))
+                    .ThenBy(level => level.name, StringComparer.Ordinal)
+                    .ToArray();
                 return;
             }
 
-            PuzzlePaintLevelData[] loadedLevels = Resources.LoadAll<PuzzlePaintLevelData>(levelsResourcePath);
-            _levels = loadedLevels
-                .Where(level => level != null)
-                .OrderBy(level => GetLevelSortKey(level.name))
-                .ThenBy(level => level.name)
-                .ToArray();
+            _levels = Array.Empty<PuzzlePaintLevelData>();
         }
 
         private static int GetLevelSortKey(string levelName)
@@ -245,9 +269,12 @@ namespace _Scripts.Runtime.Gameplay
 
         private void EnterPuzzlePaintMode()
         {
+            EnsureSwipeReaderActive();
+            SubscribeSwipe();
+            LoadLevels();
             if (_levels == null || _levels.Length <= 0)
             {
-                Debug.LogWarning($"Puzzle Paint has no levels. Create Puzzle Paint level assets under Resources/{levelsResourcePath}.");
+                ApplyModeState(true);
                 return;
             }
 
@@ -371,7 +398,7 @@ namespace _Scripts.Runtime.Gameplay
             hud.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.35f);
 
             CreateText(hud.transform, "LevelText", "Level 1", 34f, TextAlignmentOptions.Left, new Vector2(16f, -16f), new Vector2(320f, 44f));
-            CreateText(hud.transform, "ProgressText", "Painted 0/0", 26f, TextAlignmentOptions.Left, new Vector2(16f, -66f), new Vector2(320f, 36f));
+            CreateText(hud.transform, "ProgressText", string.Empty, 26f, TextAlignmentOptions.Left, new Vector2(16f, -66f), new Vector2(320f, 36f));
             CreateButton(hud.transform, "ResetButton", "Reset", new Color(0.24f, 0.58f, 0.96f), new Vector2(260f, -96f), new Vector2(100f, 54f));
 
             GameObject resultPanel = new GameObject("ResultPanel", typeof(RectTransform), typeof(Image));
@@ -491,7 +518,6 @@ namespace _Scripts.Runtime.Gameplay
         {
             if (_levels == null || _levels.Length <= 0)
             {
-                Debug.LogWarning($"Puzzle Paint has no levels. Create Puzzle Paint level assets under Resources/{levelsResourcePath}.");
                 return;
             }
 
@@ -684,7 +710,17 @@ namespace _Scripts.Runtime.Gameplay
 
         private void HandleSwipe(Vector2Int direction)
         {
-            if (!_isModeActive || _isAnimating || _isCompleted || direction == Vector2Int.zero || _currentLevelData == null)
+            if (!_isModeActive || _isAnimating || _isCompleted || direction == Vector2Int.zero)
+            {
+                return;
+            }
+
+            if (_currentLevelData == null && _levels != null && _levels.Length > 0)
+            {
+                LoadCurrentLevel();
+            }
+
+            if (_currentLevelData == null)
             {
                 return;
             }
@@ -800,7 +836,7 @@ namespace _Scripts.Runtime.Gameplay
 
         private void CheckWin()
         {
-            if (!AreAllPaintableCellsPainted())
+            if (!allowCompletion || !AreAllPaintableCellsPainted())
             {
                 return;
             }
@@ -844,9 +880,7 @@ namespace _Scripts.Runtime.Gameplay
 
             if (_progressText != null)
             {
-                _progressText.text = _currentLevelData != null
-                    ? $"Painted {CountPaintedCells()}/{CountPaintableCells()}"
-                    : "Painted 0/0";
+                _progressText.text = string.Empty;
             }
         }
 

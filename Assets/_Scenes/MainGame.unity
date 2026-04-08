@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 3701284}
   - component: {fileID: 3701283}
   - component: {fileID: 3701282}
+  - component: {fileID: 3701286}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -225,6 +226,35 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!114 &3701286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3701281}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da56bd51490c4ed181aed5f4ebd8eaba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rootOverride: {fileID: 0}
+  backgroundImage: {fileID: 0}
+  logoImage: {fileID: 0}
+  progressSlider: {fileID: 0}
+  logoSprite: {fileID: 0}
+  backgroundColor: {r: 0, g: 0, b: 0, a: 0.85}
+  barBackgroundColor: {r: 1, g: 1, b: 1, a: 0.2}
+  barFillColor: {r: 1, g: 1, b: 1, a: 0.9}
+  logoSize: {x: 320, y: 160}
+  logoOffset: {x: 0, y: 80}
+  barSize: {x: 420, y: 24}
+  barOffset: {x: 0, y: -120}
+  simulatedDuration: 2
+  autoStart: 1
+  hideOnComplete: 1
+  blockInput: 1
+  useUnscaledTime: 1
 --- !u!1 &4216192
 GameObject:
   m_ObjectHideFlags: 0
@@ -2214,7 +2244,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Runtime.Build.CoinTextBinder
   wallet: {fileID: 1495496565}
   coinText: {fileID: 400750605}
-  prefix: 'Coin: '
+  prefix: 
 --- !u!114 &400750605
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2802,7 +2832,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2518743693631868017, guid: 9566e3e8ed73d944086cebfbcd182b07, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2578463588048316491, guid: 9566e3e8ed73d944086cebfbcd182b07, type: 3}
       propertyPath: m_Type
@@ -2878,7 +2908,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3327579954297755359, guid: 9566e3e8ed73d944086cebfbcd182b07, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -93
       objectReference: {fileID: 0}
     - target: {fileID: 3390316968298986511, guid: 9566e3e8ed73d944086cebfbcd182b07, type: 3}
       propertyPath: m_Pivot.x
@@ -4805,7 +4835,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Runtime.Build.CoinTextBinder
   wallet: {fileID: 1495496565}
   coinText: {fileID: 760716015}
-  prefix: 'Coin: '
+  prefix: 
 --- !u!114 &760716015
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5474,7 +5504,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0ce21f7695d405c9e2eb3e5a638e99c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SwipeInputReader
-  minSwipeDistance: 50
+  minSwipeDistance: 20
   allowMouseSimulation: 1
   emitDuringDrag: 1
 --- !u!114 &826976559
@@ -5762,6 +5792,7 @@ MonoBehaviour:
   topDownPitch: 82
   keepBoardCenteredOnScreen: 1
   moveStepDuration: 0.08
+  allowCompletion: 1
 --- !u!1 &928945306
 GameObject:
   m_ObjectHideFlags: 0
@@ -6931,7 +6962,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Runtime.Build.CoinTextBinder
   wallet: {fileID: 1495496565}
   coinText: {fileID: 1064295692}
-  prefix: 'Coin: '
+  prefix: 
 --- !u!114 &1064295692
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7565,7 +7596,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Runtime.Build.CoinTextBinder
   wallet: {fileID: 1495496565}
   coinText: {fileID: 1120500440}
-  prefix: 'Coin: '
+  prefix: 
 --- !u!114 &1120500440
 MonoBehaviour:
   m_ObjectHideFlags: 0
