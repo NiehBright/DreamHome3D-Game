@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe156f1411af46a58d427c8ff9652fd3, type: 3}
+  m_Name: PaintL_04
+  m_EditorClassIdentifier: Assembly-CSharp::_Scripts.Runtime.PuzzlePaint.PuzzlePaintLevelData
+  size: 5
+  cells:
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 1
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 1
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0
+  - tileType: 0
+    hasPlayerStart: 0

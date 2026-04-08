@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::_Scripts.Runtime.PuzzlePaint.PuzzlePaintLevelListData
   levels:
   - {fileID: 11400000, guid: 5bc07925f28f6544eb932a9a86eb24f6, type: 2}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 11400000, guid: f28d2046438c91949b5f0fab4dc37f88, type: 2}
+  - {fileID: 11400000, guid: 1d5a7576c8dac354499e41d3805f61ac, type: 2}
+  - {fileID: 11400000, guid: 89d2091b8035d444e88f85a6da9ae337, type: 2}
+  - {fileID: 11400000, guid: efa7f08611d55b241bd436c7cb7a89d4, type: 2}
+  - {fileID: 11400000, guid: ac40798b802ec8148a1989a0ba90ec50, type: 2}
