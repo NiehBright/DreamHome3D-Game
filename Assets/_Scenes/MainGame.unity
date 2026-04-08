@@ -2832,7 +2832,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2518743693631868017, guid: 9566e3e8ed73d944086cebfbcd182b07, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2578463588048316491, guid: 9566e3e8ed73d944086cebfbcd182b07, type: 3}
       propertyPath: m_Type
@@ -5536,6 +5536,8 @@ MonoBehaviour:
   cellSize: 0.88
   floorYOffset: 0.86
   playerGoalYOffset: 1.73
+  faceCameraOnSpawn: 1
+  faceMoveDirection: 1
   floorScale: 0.45
   wallScale: 1
   goalScale: 0.5
