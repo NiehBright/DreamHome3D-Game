@@ -102,8 +102,26 @@ namespace _Scripts.Runtime.Build
 
             if ((next - _target).sqrMagnitude <= arrivalThreshold * arrivalThreshold)
             {
-                _idleTimer = Random.Range(minIdleSeconds, Mathf.Max(minIdleSeconds, maxIdleSeconds));
-                _hasTarget = false;
+                if (maxIdleSeconds > 0f)
+                {
+                    float idleMin = Mathf.Max(0f, minIdleSeconds);
+                    float idleMax = Mathf.Max(idleMin, maxIdleSeconds);
+                    _idleTimer = Random.Range(idleMin, idleMax);
+                }
+                else
+                {
+                    _idleTimer = 0f;
+                    _hasTarget = false;
+                }
+
+                if (_idleTimer <= 0f)
+                {
+                    PickNewTarget(false);
+                }
+                else
+                {
+                    _hasTarget = false;
+                }
             }
         }
 
@@ -275,7 +293,16 @@ namespace _Scripts.Runtime.Build
                 return;
             }
 
-            _idleTimer = Random.Range(minIdleSeconds, Mathf.Max(minIdleSeconds, maxIdleSeconds));
+            if (maxIdleSeconds > 0f)
+            {
+                float idleMin = Mathf.Max(0f, minIdleSeconds);
+                float idleMax = Mathf.Max(idleMin, maxIdleSeconds);
+                _idleTimer = Random.Range(idleMin, idleMax);
+            }
+            else
+            {
+                _idleTimer = 0f;
+            }
         }
     }
 }
