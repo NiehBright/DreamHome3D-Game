@@ -115,3 +115,5 @@ MonoBehaviour:
     hasBox: 0
     isGoal: 0
     hasPlayerStart: 0
+  optimalSteps: 0
+  coinReward: 50

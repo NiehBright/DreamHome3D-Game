@@ -11,6 +11,8 @@ namespace Runtime.Build
         [SerializeField] private BuildModeController buildModeController;
         [SerializeField] private FurnitureShopUI furnitureShopUI;
         [SerializeField] private PuzzleLevelSelectController puzzleLevelSelectController;
+        [SerializeField] private PuzzleGameSelectController puzzleGameSelectController;
+        [SerializeField] private PuzzlePaintController puzzlePaintController;
 
         [Header("Main UI")]
         [SerializeField] private Button buildButton;
@@ -44,6 +46,35 @@ namespace Runtime.Build
             if (buildModeController == null)
             {
                 buildModeController = FindFirstObjectByType<BuildModeController>();
+            }
+
+            if (puzzleGameSelectController == null)
+            {
+                puzzleGameSelectController = FindFirstObjectByType<PuzzleGameSelectController>();
+            }
+
+            if (puzzleGameSelectController == null)
+            {
+                GameObject controllerHost = new GameObject("PuzzleGameSelectController");
+                Canvas canvas = FindFirstObjectByType<Canvas>();
+                if (canvas != null)
+                {
+                    controllerHost.transform.SetParent(canvas.transform, false);
+                }
+
+                puzzleGameSelectController = controllerHost.AddComponent<PuzzleGameSelectController>();
+            }
+
+            if (puzzlePaintController == null)
+            {
+                GameObject controllerHost = new GameObject("PuzzlePaintController");
+                Canvas canvas = FindFirstObjectByType<Canvas>();
+                if (canvas != null)
+                {
+                    controllerHost.transform.SetParent(canvas.transform, false);
+                }
+
+                puzzlePaintController = controllerHost.AddComponent<PuzzlePaintController>();
             }
         }
 
@@ -104,22 +135,18 @@ namespace Runtime.Build
 
         private void HandleBuildButton()
         {
+            puzzleGameSelectController?.CloseSelector();
             modeController?.EnterBuildMode();
         }
 
         private void HandlePuzzleButton()
         {
-            if (puzzleLevelSelectController != null)
-            {
-                puzzleLevelSelectController.EnterPuzzleAndOpenSelector();
-                return;
-            }
-
-            modeController?.EnterPuzzleMode();
+            puzzleGameSelectController?.OpenSelector();
         }
 
         private void HandleExitToMainButton()
         {
+            puzzleGameSelectController?.CloseSelector();
             puzzleLevelSelectController?.CloseLevelSelect();
             modeController?.EnterMainMode();
         }

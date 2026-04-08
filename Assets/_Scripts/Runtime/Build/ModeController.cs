@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 namespace Runtime.Build
 {
@@ -7,7 +8,8 @@ namespace Runtime.Build
         // Keep existing numeric values stable for already-configured scenes.
         Puzzle = 0,
         Build = 1,
-        Main = 2
+        Main = 2,
+        PuzzlePaint = 3
     }
 
     public class ModeController : MonoBehaviour
@@ -15,6 +17,7 @@ namespace Runtime.Build
         [Header("World Roots")]
         [SerializeField] private GameObject mainRoot;
         [SerializeField] private GameObject puzzleRoot;
+        [SerializeField] private GameObject puzzlePaintRoot;
         [SerializeField] private GameObject buildModeRoot;
         [SerializeField] private GameObject buildPlacedRoot;
 
@@ -22,10 +25,12 @@ namespace Runtime.Build
         [SerializeField] private GameObject uiMainRoot;
         [SerializeField] private GameObject uiBuildRoot;
         [SerializeField] private GameObject uiPuzzleRoot;
+        [SerializeField] private GameObject uiPuzzlePaintRoot;
 
         [Header("Cameras")]
         [SerializeField] private Camera mainCamera;
         [SerializeField] private Camera puzzleCamera;
+        [SerializeField] private Camera puzzlePaintCamera;
         [SerializeField] private Camera buildCamera;
         [SerializeField] private bool showPlacedRootInPuzzleMode;
 
@@ -33,6 +38,7 @@ namespace Runtime.Build
         [SerializeField] private BuildModeController buildModeController;
 
         public GameMode CurrentMode { get; private set; } = GameMode.Main;
+        public event Action<GameMode> ModeChanged;
 
         private void Start()
         {
@@ -54,6 +60,12 @@ namespace Runtime.Build
             SetMode(GameMode.Puzzle);
         }
 
+        public bool TryEnterPuzzlePaintMode()
+        {
+            SetMode(GameMode.PuzzlePaint);
+            return true;
+        }
+
         public void SetMode(GameMode mode)
         {
             if (CurrentMode == mode)
@@ -63,6 +75,7 @@ namespace Runtime.Build
 
             CurrentMode = mode;
             ApplyMode(mode);
+            ModeChanged?.Invoke(mode);
         }
 
         private void ApplyMode(GameMode mode)
@@ -70,18 +83,22 @@ namespace Runtime.Build
             bool isMain = mode == GameMode.Main;
             bool isBuild = mode == GameMode.Build;
             bool isPuzzle = mode == GameMode.Puzzle;
+            bool isPuzzlePaint = mode == GameMode.PuzzlePaint;
 
             SetActiveSafe(mainRoot, isMain);
             SetActiveSafe(puzzleRoot, isPuzzle);
+            SetActiveSafe(puzzlePaintRoot, isPuzzlePaint);
             SetActiveSafe(buildModeRoot, isBuild);
             SetActiveSafe(buildPlacedRoot, isMain || isBuild || (isPuzzle && showPlacedRootInPuzzleMode));
 
             SetActiveSafe(uiMainRoot, isMain);
             SetActiveSafe(uiBuildRoot, isBuild);
             SetActiveSafe(uiPuzzleRoot, isPuzzle);
+            SetActiveSafe(uiPuzzlePaintRoot, isPuzzlePaint);
 
             SetCameraActive(mainCamera, isMain);
             SetCameraActive(puzzleCamera, isPuzzle);
+            SetCameraActive(puzzlePaintCamera, isPuzzlePaint);
             SetCameraActive(buildCamera, isBuild);
 
 

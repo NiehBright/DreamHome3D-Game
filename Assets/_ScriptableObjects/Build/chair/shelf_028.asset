@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db263d37f51e49b08f785ec093e44a7c, type: 3}
+  m_Name: shelf_028
+  m_EditorClassIdentifier: Assembly-CSharp::Runtime.Build.FurnitureItemData
+  itemId: shelf_028
+  displayName: ShelfGame
+  size: {x: 1, y: 1}
+  canRotate: 1
+  price: 100
+  prefab: {fileID: 3400836714374070253, guid: 6ff38b11544ae6e42af2164740b537a9, type: 3}
+  shopIcon: {fileID: 21300000, guid: 0e25da8ccf268864f899d97e9153bc82, type: 3}
+  visualRotationOffsetDegrees: 0

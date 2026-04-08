@@ -11,6 +11,7 @@ public class LevelData : ScriptableObject
     [SerializeField, Min(0)] private int optimalSteps = 0; // Số bước tối ưu
     [SerializeField, Min(0)] private int coinReward = 50;
 
+
     public int Width => width;
     public int Height => height;
     public int OptimalSteps => optimalSteps; // Property mới
@@ -30,11 +31,23 @@ public class LevelData : ScriptableObject
 
     public CellData GetCell(int x, int y)
     {
+        if (!IsInside(x, y))
+        {
+            return new CellData { tileType = TileType.Empty };
+        }
+
+        EnsureGridSize();
         return cells[ToIndex(x, y)];
     }
 
     public void SetCell(int x, int y, CellData data)
     {
+        if (!IsInside(x, y))
+        {
+            return;
+        }
+
+        EnsureGridSize();
         cells[ToIndex(x, y)] = data;
     }
 
@@ -106,6 +119,11 @@ public class LevelData : ScriptableObject
 
     private void OnValidate()
     {
+        // Clamp width/height to valid range
+        width = Mathf.Max(1, width);
+        height = Mathf.Max(1, height);
+
+
         EnsureGridSize();
         Normalize();
     }
@@ -129,6 +147,15 @@ public class LevelData : ScriptableObject
         if (cells.Count > required)
         {
             cells.RemoveRange(required, cells.Count - required);
+        }
+
+        if (cells.Count != required)
+        {
+            cells = new List<CellData>(required);
+            for (int i = 0; i < required; i++)
+            {
+                cells.Add(new CellData { tileType = TileType.Empty });
+            }
         }
     }
 

@@ -61,14 +61,16 @@ public class LevelDataEditor : Editor
         serializedLevel.ApplyModifiedProperties();
         EditorGUILayout.Space();
 
-        int newWidth = Mathf.Max(1, EditorGUILayout.IntField("Width", levelData.Width));
-        int newHeight = Mathf.Max(1, EditorGUILayout.IntField("Height", levelData.Height));
+        EditorGUILayout.LabelField("Grid Size", EditorStyles.boldLabel);
+        int gridSize = Mathf.Max(1, EditorGUILayout.IntField("Size (creates NxN grid)", levelData.Width));
 
-        if ((newWidth != levelData.Width || newHeight != levelData.Height) && GUILayout.Button("Resize Grid"))
+        if ((gridSize != levelData.Width || gridSize != levelData.Height) && GUILayout.Button("Apply Size"))
         {
             Undo.RecordObject(levelData, "Resize Level Grid");
-            levelData.Resize(newWidth, newHeight);
+            levelData.Resize(gridSize, gridSize);
             EditorUtility.SetDirty(levelData);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
         }
     }
 
@@ -87,14 +89,22 @@ public class LevelDataEditor : Editor
                 var logicalPos = new Vector2Int(x, y);
                 Rect cellRect = GetCellRect(gridRect, logicalPos, levelData.Height);
 
-                CellData cell = levelData.GetCell(x, y);
-                DrawCellVisual(cellRect, cell);
-
-                if (evt.button == 0 && (evt.type == EventType.MouseDown || evt.type == EventType.MouseDrag) && cellRect.Contains(evt.mousePosition))
+                try
                 {
-                    Undo.RecordObject(levelData, "Paint Level Cell");
-                    PaintCell(levelData, logicalPos);
-                    evt.Use();
+                    CellData cell = levelData.GetCell(x, y);
+                    DrawCellVisual(cellRect, cell);
+
+                    if (evt.button == 0 && (evt.type == EventType.MouseDown || evt.type == EventType.MouseDrag) && cellRect.Contains(evt.mousePosition))
+                    {
+                        Undo.RecordObject(levelData, "Paint Level Cell");
+                        PaintCell(levelData, logicalPos);
+                        evt.Use();
+                    }
+                }
+                catch (System.Exception)
+                {
+                    // Cell not available - draw placeholder
+                    EditorGUI.DrawRect(cellRect, new Color(0.5f, 0.2f, 0.2f, 0.5f));
                 }
             }
         }

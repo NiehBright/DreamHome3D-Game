@@ -500,6 +500,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1987455903}
+  - component: {fileID: 2100000002}
   m_Layer: 0
   m_Name: BuildPlacedRoot
   m_TagString: Untagged
@@ -522,6 +523,43 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2100000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1987455902}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbe12b22996d44d3b08bfadd5307eb76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  characterRoot: {fileID: 0}
+  characterPrefab: {fileID: 0}
+  spawnIfMissing: 1
+  yOffset: 0
+  useBuildGridBounds: 1
+  buildModeController: {fileID: 1112201427}
+  boundsCollider: {fileID: 0}
+  boundsCenter: {x: 0, y: 0, z: 0}
+  boundsSize: {x: 8, y: 0, z: 8}
+  minMoveSpeed: 0.6
+  maxMoveSpeed: 1.4
+  minIdleSeconds: 0.3
+  maxIdleSeconds: 1.2
+  arrivalThreshold: 0.05
+  faceMoveDirection: 1
+  rotationLerpSpeed: 10
+  avoidObstacles: 1
+  avoidDistance: 0.6
+  avoidRadius: 0.2
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  persistPosition: 1
+  positionSaveKey: BuildPlacedWanderer.Position
+  snapToBoundsOnEnable: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
