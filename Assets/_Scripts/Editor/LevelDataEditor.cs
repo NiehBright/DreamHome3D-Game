@@ -82,13 +82,6 @@ public class LevelDataEditor : Editor
         float gridHeight = levelData.Height * CellSize;
         Rect gridRect = GUILayoutUtility.GetRect(gridWidth, gridHeight);
 
-        // Guard: ensure cells list is properly sized before drawing
-        if (levelData.Width * levelData.Height != gridWidth / CellSize * gridHeight / CellSize)
-        {
-            EditorGUILayout.HelpBox("Grid size mismatch. Click 'Apply Size' to fix.", MessageType.Warning);
-            return;
-        }
-
         for (int y = 0; y < levelData.Height; y++)
         {
             for (int x = 0; x < levelData.Width; x++)
@@ -98,17 +91,17 @@ public class LevelDataEditor : Editor
 
                 try
                 {
-                CellData cell = levelData.GetCell(x, y);
-                DrawCellVisual(cellRect, cell);
+                    CellData cell = levelData.GetCell(x, y);
+                    DrawCellVisual(cellRect, cell);
 
-                if (evt.button == 0 && (evt.type == EventType.MouseDown || evt.type == EventType.MouseDrag) && cellRect.Contains(evt.mousePosition))
-                {
-                    Undo.RecordObject(levelData, "Paint Level Cell");
-                    PaintCell(levelData, logicalPos);
-                    evt.Use();
+                    if (evt.button == 0 && (evt.type == EventType.MouseDown || evt.type == EventType.MouseDrag) && cellRect.Contains(evt.mousePosition))
+                    {
+                        Undo.RecordObject(levelData, "Paint Level Cell");
+                        PaintCell(levelData, logicalPos);
+                        evt.Use();
+                    }
                 }
-                }
-                catch (System.IndexOutOfRangeException)
+                catch (System.Exception)
                 {
                     // Cell not available - draw placeholder
                     EditorGUI.DrawRect(cellRect, new Color(0.5f, 0.2f, 0.2f, 0.5f));

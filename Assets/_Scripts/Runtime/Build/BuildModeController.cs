@@ -124,6 +124,10 @@ namespace Runtime.Build
         public Camera BuildCamera => buildCamera;
         public bool HasSelectedPlacement => !string.IsNullOrEmpty(selectedPlacementId);
         public bool IsDeleteMode => isDeleteMode;
+        public int GridWidth => gridWidth;
+        public int GridHeight => gridHeight;
+        public float CellSize => cellSize;
+        public Vector3 GridOrigin => gridOrigin;
 
         private class RuntimePlacement
         {
@@ -827,7 +831,7 @@ namespace Runtime.Build
     }
 
         private void TryCommitPreview()
-        {
+    {
         if (activePreview == null || !activePreview.isValid)
         {
             if (activePreview != null && activePreview.isNewPurchase)
@@ -1622,7 +1626,7 @@ namespace Runtime.Build
     }
 
         private void FitGridCellPrefabToCellSize(Transform tileTransform)
-        {
+    {
         if (tileTransform == null || cellSize <= 0f)
         {
             return;

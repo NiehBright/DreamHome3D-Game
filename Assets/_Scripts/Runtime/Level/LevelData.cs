@@ -31,11 +31,23 @@ public class LevelData : ScriptableObject
 
     public CellData GetCell(int x, int y)
     {
+        if (!IsInside(x, y))
+        {
+            return new CellData { tileType = TileType.Empty };
+        }
+
+        EnsureGridSize();
         return cells[ToIndex(x, y)];
     }
 
     public void SetCell(int x, int y, CellData data)
     {
+        if (!IsInside(x, y))
+        {
+            return;
+        }
+
+        EnsureGridSize();
         cells[ToIndex(x, y)] = data;
     }
 
@@ -135,6 +147,15 @@ public class LevelData : ScriptableObject
         if (cells.Count > required)
         {
             cells.RemoveRange(required, cells.Count - required);
+        }
+
+        if (cells.Count != required)
+        {
+            cells = new List<CellData>(required);
+            for (int i = 0; i < required; i++)
+            {
+                cells.Add(new CellData { tileType = TileType.Empty });
+            }
         }
     }
 

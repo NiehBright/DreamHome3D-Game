@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: db263d37f51e49b08f785ec093e44a7c, type: 3}
-  m_Name: wall_right
+  m_Name: shelf_028
   m_EditorClassIdentifier: Assembly-CSharp::Runtime.Build.FurnitureItemData
-  itemId: wall_right
-  displayName: Wall Right
+  itemId: shelf_028
+  displayName: ShelfGame
   size: {x: 1, y: 1}
   canRotate: 1
-  price: 50
-  prefab: {fileID: 745092559247019196, guid: 2e097ca94c95d0c4eaf760bd0a581893, type: 3}
-  shopIcon: {fileID: 21300000, guid: 6eb211367381f0c40855c15cbd881ac8, type: 3}
+  price: 100
+  prefab: {fileID: 3400836714374070253, guid: 6ff38b11544ae6e42af2164740b537a9, type: 3}
+  shopIcon: {fileID: 21300000, guid: 0e25da8ccf268864f899d97e9153bc82, type: 3}
   visualRotationOffsetDegrees: 0

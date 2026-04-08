@@ -6,12 +6,14 @@ public class SwipeInputReader : MonoBehaviour
 {
     [SerializeField] private float minSwipeDistance = 50f;
     [SerializeField] private bool allowMouseSimulation = true;
+    [SerializeField] private bool emitDuringDrag = true;
 
     public event Action<Vector2Int> OnSwipe;
 
     private Vector2 startPosition;
     private bool tracking;
     private bool trackingTouch;
+    private bool swipeSentInGesture;
 
     private void Update()
     {
@@ -25,15 +27,27 @@ public class SwipeInputReader : MonoBehaviour
             {
                 tracking = true;
                 trackingTouch = true;
+                swipeSentInGesture = false;
                 startPosition = primaryTouch.position.ReadValue();
                 touchHandled = true;
+            }
+            else if (tracking && trackingTouch && emitDuringDrag && primaryTouch.press.isPressed && !swipeSentInGesture)
+            {
+                Vector2 currentPosition = primaryTouch.position.ReadValue();
+                if (TryEmitSwipe(currentPosition - startPosition))
+                {
+                    swipeSentInGesture = true;
+                }
             }
             else if (tracking && trackingTouch && primaryTouch.press.wasReleasedThisFrame)
             {
                 tracking = false;
                 trackingTouch = false;
-                Vector2 endPosition = primaryTouch.position.ReadValue();
-                TryEmitSwipe(endPosition - startPosition);
+                if (!swipeSentInGesture)
+                {
+                    Vector2 endPosition = primaryTouch.position.ReadValue();
+                    TryEmitSwipe(endPosition - startPosition);
+                }
                 touchHandled = true;
             }
         }
@@ -44,22 +58,34 @@ public class SwipeInputReader : MonoBehaviour
             {
                 tracking = true;
                 trackingTouch = false;
+                swipeSentInGesture = false;
                 startPosition = Mouse.current.position.ReadValue();
+            }
+            else if (tracking && !trackingTouch && emitDuringDrag && Mouse.current.leftButton.isPressed && !swipeSentInGesture)
+            {
+                Vector2 currentPosition = Mouse.current.position.ReadValue();
+                if (TryEmitSwipe(currentPosition - startPosition))
+                {
+                    swipeSentInGesture = true;
+                }
             }
             else if (tracking && !trackingTouch && Mouse.current.leftButton.wasReleasedThisFrame)
             {
                 tracking = false;
-                Vector2 endPosition = Mouse.current.position.ReadValue();
-                TryEmitSwipe(endPosition - startPosition);
+                if (!swipeSentInGesture)
+                {
+                    Vector2 endPosition = Mouse.current.position.ReadValue();
+                    TryEmitSwipe(endPosition - startPosition);
+                }
             }
         }
     }
 
-    private void TryEmitSwipe(Vector2 delta)
+    private bool TryEmitSwipe(Vector2 delta)
     {
         if (delta.magnitude < minSwipeDistance)
         {
-            return;
+            return false;
         }
 
         Vector2Int direction;
@@ -73,6 +99,7 @@ public class SwipeInputReader : MonoBehaviour
         }
 
         OnSwipe?.Invoke(direction);
+        return true;
     }
 }
 
