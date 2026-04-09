@@ -21,6 +21,7 @@ namespace _Scripts.Runtime.Gameplay
         private Button _paintButton;
         private Button _classicButton;
         private Button _closeButton;
+        private Button _resetButton;
 
         public bool IsOpen => _panelInstance != null && _panelInstance.activeSelf;
 
@@ -101,10 +102,12 @@ namespace _Scripts.Runtime.Gameplay
             _paintButton = FindButton(root, "PaintButton");
             _classicButton = FindButton(root, "ClassicButton");
             _closeButton = FindButton(root, "CloseButton");
+            _resetButton = FindButton(root, "ResetButton");
 
             AddListener(_paintButton, HandlePaintClicked);
             AddListener(_classicButton, HandleClassicClicked);
             AddListener(_closeButton, CloseSelector);
+            AddListener(_resetButton, HandleResetClicked);
         }
 
         private void HandleClassicClicked()
@@ -129,6 +132,14 @@ namespace _Scripts.Runtime.Gameplay
             }
 
             Debug.LogWarning("Puzzle Paint mode is not configured yet. Add puzzlePaintRoot or uiPuzzlePaintRoot to ModeController.");
+        }
+
+        private void HandleResetClicked()
+        {
+            classicPuzzleSelectController?.ResetProgress();
+
+            PuzzlePaintController paintController = FindFirstObjectByType<PuzzlePaintController>();
+            paintController?.ResetProgress();
         }
 
         private GameObject CreateFallbackPanel()
@@ -171,6 +182,7 @@ namespace _Scripts.Runtime.Gameplay
 
             CreateButton(card.transform, "PaintButton", "Puzzle Paint", new Color(0.46f, 0.2f, 0.74f));
             CreateButton(card.transform, "ClassicButton", "Puzzle Cũ", new Color(0.2f, 0.58f, 0.92f));
+            CreateButton(card.transform, "ResetButton", "Reset Progress", new Color(0.86f, 0.36f, 0.2f));
             CreateButton(card.transform, "CloseButton", "Đóng", new Color(0.45f, 0.45f, 0.45f));
 
             root.transform.SetParent(panelParent != null ? panelParent : transform, false);

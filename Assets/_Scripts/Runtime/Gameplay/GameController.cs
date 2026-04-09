@@ -32,7 +32,11 @@ public class GameController : MonoBehaviour
     [SerializeField] private float cellSize = 1f;
     [SerializeField] private float floorYOffset = -0.5f;
     [SerializeField] private float playerGoalYOffset = 0f;
-    
+
+    [Header("Player Facing")]
+    [SerializeField] private bool faceCameraOnSpawn = true;
+    [SerializeField] private bool faceMoveDirection = true;
+
     [Header("Object Scale")]
     [SerializeField] private float floorScale = 1f;
     [SerializeField] private float wallScale = 1f;
@@ -103,6 +107,22 @@ public class GameController : MonoBehaviour
         {
             stepCounterUI.Initialize(stepCounter);
         }
+
+        EnsureLevelResultUi();
+    }
+
+    private void EnsureLevelResultUi()
+    {
+        LevelResultUI existing = FindFirstObjectByType<LevelResultUI>();
+        if (existing != null)
+        {
+            return;
+        }
+
+        Canvas canvas = FindFirstObjectByType<Canvas>();
+        GameObject root = new GameObject("LevelResultUI");
+        root.transform.SetParent(canvas != null ? canvas.transform : transform, false);
+        root.AddComponent<LevelResultUI>();
     }
 
     private void OnEnable()
@@ -185,13 +205,13 @@ public class GameController : MonoBehaviour
         lastCompletedStarBonusCoinsAwarded = 0;
         gridState = LevelLoader.Load(currentLevelData);
         moveHistory.Clear();
-        
+
         // Khởi tạo step counter với số bước tối ưu từ level data
         if (stepCounter != null)
         {
             stepCounter.Initialize(currentLevelData.OptimalSteps);
         }
-        
+
         SetBackButtonVisible(true);
         SetResetButtonVisible(true);
         SetResetButtonVisible(true);
@@ -199,6 +219,7 @@ public class GameController : MonoBehaviour
         UpdateLevelLabel();
         RebuildBoard();
         RefreshDynamicViews();
+        FacePlayerTowardsCamera();
 
         UpdateBackButtonState();
         LevelLoaded?.Invoke(currentLevelIndex);
@@ -237,13 +258,13 @@ public class GameController : MonoBehaviour
         }
 
         moveHistory.Push(moveResult);
-        
+
         // Tăng số bước khi di chuyển thành công
         if (stepCounter != null)
         {
             stepCounter.IncrementStep();
         }
-        
+
         UpdateBackButtonState();
 
         if (moveResult.pushedBox)
@@ -256,6 +277,7 @@ public class GameController : MonoBehaviour
 
         RefreshGoalViews();
         playerView.position = GridToWorld(moveResult.currentPlayerPosition);
+        FacePlayerTowardsDirection(direction);
 
         if (WinChecker.IsLevelComplete(gridState))
         {
@@ -408,6 +430,45 @@ public class GameController : MonoBehaviour
         {
             pair.Value.position = GridToWorld(pair.Key);
         }
+    }
+
+    private void FacePlayerTowardsCamera()
+    {
+        if (!faceCameraOnSpawn || playerView == null)
+        {
+            return;
+        }
+
+        Camera cameraRef = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
+        if (cameraRef == null)
+        {
+            return;
+        }
+
+        Vector3 direction = cameraRef.transform.position - playerView.position;
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        playerView.rotation = Quaternion.LookRotation(direction, Vector3.up);
+    }
+
+    private void FacePlayerTowardsDirection(Vector2Int gridDirection)
+    {
+        if (!faceMoveDirection || playerView == null)
+        {
+            return;
+        }
+
+        Vector3 direction = new Vector3(gridDirection.x, 0f, gridDirection.y);
+        if (direction.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        playerView.rotation = Quaternion.LookRotation(direction, Vector3.up);
     }
 
     private void UpdateLevelLabel()

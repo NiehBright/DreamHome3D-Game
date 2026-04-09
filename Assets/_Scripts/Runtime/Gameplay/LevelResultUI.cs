@@ -21,6 +21,8 @@ public class LevelResultUI : MonoBehaviour
 
         // Keep result popup hidden until level is completed.
         HideResult();
+
+        EnsureResultRoot();
     }
 
     private void OnEnable()
@@ -44,6 +46,8 @@ public class LevelResultUI : MonoBehaviour
     // Can be called from Inspector event, but it is also triggered automatically on LevelCompleted.
     public void ShowResult()
     {
+        EnsureResultRoot();
+
         if (resultRoot != null)
         {
             resultRoot.SetActive(true);
@@ -110,5 +114,54 @@ public class LevelResultUI : MonoBehaviour
     {
         ShowResult();
     }
-}
 
+    private void EnsureResultRoot()
+    {
+        if (resultRoot != null && resultText != null)
+        {
+            return;
+        }
+
+        Canvas canvas = FindFirstObjectByType<Canvas>();
+        Transform parent = canvas != null ? canvas.transform : transform;
+
+        if (resultRoot == null)
+        {
+            resultRoot = CreateFallbackResultRoot(parent);
+        }
+
+        if (resultText == null)
+        {
+            resultText = resultRoot.GetComponentInChildren<TMP_Text>(true);
+        }
+    }
+
+    private GameObject CreateFallbackResultRoot(Transform parent)
+    {
+        GameObject root = new GameObject("ResultPanel", typeof(RectTransform), typeof(CanvasRenderer));
+        root.transform.SetParent(parent, false);
+
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(520f, 320f);
+
+        GameObject textRoot = new GameObject("ResultText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textRoot.transform.SetParent(root.transform, false);
+        RectTransform textRect = textRoot.GetComponent<RectTransform>();
+        textRect.anchorMin = new Vector2(0.5f, 0.5f);
+        textRect.anchorMax = new Vector2(0.5f, 0.5f);
+        textRect.pivot = new Vector2(0.5f, 0.5f);
+        textRect.sizeDelta = new Vector2(460f, 200f);
+
+        TextMeshProUGUI tmp = textRoot.GetComponent<TextMeshProUGUI>();
+        tmp.text = "Level Complete!";
+        tmp.fontSize = 34f;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+
+        root.SetActive(false);
+        return root;
+    }
+}

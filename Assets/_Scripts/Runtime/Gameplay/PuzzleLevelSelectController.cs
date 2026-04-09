@@ -271,6 +271,20 @@ namespace _Scripts.Runtime.Gameplay
     {
         return gameController != null ? gameController.TotalLevelCount : 0;
     }
+
+    public void ResetProgress()
+    {
+        int totalLevelCount = GetTotalLevelCount();
+        int fallbackStart = gameController != null ? gameController.StartingLevelIndex : 0;
+        int maxIndex = Mathf.Max(0, totalLevelCount - 1);
+
+        PlayerPrefs.DeleteKey(HighestUnlockedKey);
+        PlayerPrefs.DeleteKey(SelectedLevelKey);
+
+        _highestUnlockedIndex = Mathf.Clamp(fallbackStart, 0, maxIndex);
+        _selectedLevelIndex = _highestUnlockedIndex;
+        SaveProgress();
+        RefreshView();
+    }
     }
 }
-
