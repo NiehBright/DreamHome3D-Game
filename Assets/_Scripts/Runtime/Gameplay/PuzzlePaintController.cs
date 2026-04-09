@@ -992,6 +992,24 @@ namespace _Scripts.Runtime.Gameplay
             LoadCurrentLevel();
         }
 
+        public void ResetProgress()
+        {
+            PlayerPrefs.DeleteKey(SelectedLevelKey);
+            PlayerPrefs.SetInt(SelectedLevelKey, 0);
+            PlayerPrefs.Save();
+
+            _currentLevelIndex = 0;
+            if (_levels == null || _levels.Length <= 0)
+            {
+                LoadLevels();
+            }
+
+            if (_isModeActive)
+            {
+                LoadCurrentLevel();
+            }
+        }
+
         private void ClearBoard()
         {
             _cellViews.Clear();

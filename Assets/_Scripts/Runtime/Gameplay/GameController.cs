@@ -107,6 +107,22 @@ public class GameController : MonoBehaviour
         {
             stepCounterUI.Initialize(stepCounter);
         }
+
+        EnsureLevelResultUi();
+    }
+
+    private void EnsureLevelResultUi()
+    {
+        LevelResultUI existing = FindFirstObjectByType<LevelResultUI>();
+        if (existing != null)
+        {
+            return;
+        }
+
+        Canvas canvas = FindFirstObjectByType<Canvas>();
+        GameObject root = new GameObject("LevelResultUI");
+        root.transform.SetParent(canvas != null ? canvas.transform : transform, false);
+        root.AddComponent<LevelResultUI>();
     }
 
     private void OnEnable()
