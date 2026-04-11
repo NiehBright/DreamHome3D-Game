@@ -3,11 +3,16 @@ using UnityEngine;
 
 namespace Runtime.Build
 {
+    /// <summary>
+    /// Optimized grid state manager for Build Mode.
+    /// Efficiently tracks cell occupancy and validates placements.
+    /// </summary>
     public class BuildGridState
     {
         private readonly HashSet<Vector2Int> blockedCells;
         private readonly Dictionary<Vector2Int, string> occupiedCells;
         private readonly Dictionary<string, PlacedFurnitureData> placements;
+        private readonly List<Vector2Int> cachedFootprint = new List<Vector2Int>(64);
 
         public int Width { get; }
         public int Height { get; }
@@ -17,8 +22,8 @@ namespace Runtime.Build
             Width = Mathf.Max(1, width);
             Height = Mathf.Max(1, height);
             blockedCells = blocked ?? new HashSet<Vector2Int>();
-            occupiedCells = new Dictionary<Vector2Int, string>();
-            placements = new Dictionary<string, PlacedFurnitureData>();
+            occupiedCells = new Dictionary<Vector2Int, string>(width * height);
+            placements = new Dictionary<string, PlacedFurnitureData>(32);
         }
 
         public bool TryGetPlacement(string placementId, out PlacedFurnitureData data)
@@ -36,6 +41,11 @@ namespace Runtime.Build
             return new List<PlacedFurnitureData>(placements.Values);
         }
 
+        public int GetPlacementCount()
+        {
+            return placements.Count;
+        }
+
         public PlacementValidationResult ValidatePlacement(FurnitureItemData item, Vector2Int origin, int rotationQuarterTurns, string ignorePlacementId = null)
         {
             if (item == null)
@@ -43,8 +53,12 @@ namespace Runtime.Build
                 return new PlacementValidationResult(false, "Missing item.");
             }
 
-            foreach (Vector2Int cell in GetFootprintCells(item.Size, origin, rotationQuarterTurns))
+            GetFootprintCells(item.Size, origin, rotationQuarterTurns, cachedFootprint);
+
+            for (int i = 0; i < cachedFootprint.Count; i++)
             {
+                Vector2Int cell = cachedFootprint[i];
+
                 if (!IsInside(cell))
                 {
                     return new PlacementValidationResult(false, "Out of bounds.");
@@ -68,9 +82,11 @@ namespace Runtime.Build
         {
             placements[data.placementId] = data;
 
-            foreach (Vector2Int cell in GetFootprintCells(item.Size, data.Origin, data.rotationQuarterTurns))
+            GetFootprintCells(item.Size, data.Origin, data.rotationQuarterTurns, cachedFootprint);
+
+            for (int i = 0; i < cachedFootprint.Count; i++)
             {
-                occupiedCells[cell] = data.placementId;
+                occupiedCells[cachedFootprint[i]] = data.placementId;
             }
         }
 
@@ -81,12 +97,31 @@ namespace Runtime.Build
                 return;
             }
 
-            foreach (Vector2Int cell in GetFootprintCells(item.Size, data.Origin, data.rotationQuarterTurns))
+            GetFootprintCells(item.Size, data.Origin, data.rotationQuarterTurns, cachedFootprint);
+
+            for (int i = 0; i < cachedFootprint.Count; i++)
             {
-                occupiedCells.Remove(cell);
+                occupiedCells.Remove(cachedFootprint[i]);
             }
 
             placements.Remove(placementId);
+        }
+
+        /// <summary>
+        /// Get footprint cells using a provided list to avoid allocations.
+        /// </summary>
+        public static void GetFootprintCells(Vector2Int size, Vector2Int origin, int rotationQuarterTurns, List<Vector2Int> outputList)
+        {
+            outputList.Clear();
+            Vector2Int rotated = RotateSize(size, rotationQuarterTurns);
+
+            for (int y = 0; y < rotated.y; y++)
+            {
+                for (int x = 0; x < rotated.x; x++)
+                {
+                    outputList.Add(new Vector2Int(origin.x + x, origin.y + y));
+                }
+            }
         }
 
         public static IEnumerable<Vector2Int> GetFootprintCells(Vector2Int size, Vector2Int origin, int rotationQuarterTurns)
