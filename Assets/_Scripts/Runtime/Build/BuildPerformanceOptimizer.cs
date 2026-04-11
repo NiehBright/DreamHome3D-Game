@@ -32,8 +32,16 @@ namespace Runtime.Build
             CachedRaycastHits.Clear();
             results = CachedRaycastHits;
 
-            Physics.RaycastAll(ray, CachedRaycastHits, maxDistance, layerMask);
-            if (CachedRaycastHits.Count == 0) return false;
+            RaycastHit[] hits = Physics.RaycastAll(ray, maxDistance, layerMask);
+            
+            if (hits == null || hits.Length == 0) 
+                return false;
+
+            // Add hits to cached list
+            for (int i = 0; i < hits.Length; i++)
+            {
+                CachedRaycastHits.Add(hits[i]);
+            }
 
             // Sort by distance
             CachedRaycastHits.Sort((a, b) => a.distance.CompareTo(b.distance));
