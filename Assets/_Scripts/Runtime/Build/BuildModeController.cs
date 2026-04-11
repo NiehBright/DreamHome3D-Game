@@ -1059,32 +1059,31 @@ namespace Runtime.Build
 
         private bool TryGetPlacementAtPointer(Vector2 pointerScreenPosition, out string placementId)
         {
-        placementId = null;
+         placementId = null;
 
-        if (buildCamera == null)
-        {
-            return false;
+         if (buildCamera == null)
+         {
+             return false;
+         }
+
+         Ray ray = buildCamera.ScreenPointToRay(pointerScreenPosition);
+         
+         // Use optimized non-allocating raycast
+         if (!BuildPerformanceOptimizer.TryRaycastAll(ray, 200f, ~0, out var hits))
+         {
+             return false;
+         }
+
+         for (int i = 0; i < hits.Count; i++)
+         {
+             if (TryResolvePlacementFromTransform(hits[i].transform, out placementId))
+             {
+                 return true;
+             }
+         }
+
+         return false;
         }
-
-        Ray ray = buildCamera.ScreenPointToRay(pointerScreenPosition);
-        RaycastHit[] hits = Physics.RaycastAll(ray, 200f);
-        if (hits == null || hits.Length == 0)
-        {
-            return false;
-        }
-
-        Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-        for (int i = 0; i < hits.Length; i++)
-        {
-            if (TryResolvePlacementFromTransform(hits[i].transform, out placementId))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
         private bool TryResolvePlacementFromTransform(Transform hitTransform, out string placementId)
         {
@@ -1368,47 +1367,52 @@ namespace Runtime.Build
 
         private void SetPlacementHighlight(string placementId, bool highlighted)
         {
-        if (string.IsNullOrEmpty(placementId)
-            || !runtimePlacements.TryGetValue(placementId, out RuntimePlacement placement)
-            || placement.view == null)
-        {
-            return;
+         if (string.IsNullOrEmpty(placementId)
+             || !runtimePlacements.TryGetValue(placementId, out RuntimePlacement placement)
+             || placement.view == null)
+         {
+             return;
+         }
+
+         if (highlighted)
+         {
+             ApplyHighlightColor(placement.view);
+         }
+         else
+         {
+             BuildPerformanceOptimizer.ClearHighlight(placement.view);
+         }
         }
 
-        Renderer[] renderers = placement.view.GetComponentsInChildren<Renderer>(true);
-        for (int i = 0; i < renderers.Length; i++)
+        private void ApplyHighlightColor(Transform root)
         {
-            Renderer renderer = renderers[i];
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
-            renderer.GetPropertyBlock(block);
+         var block = new MaterialPropertyBlock();
+         var renderers = BuildPerformanceOptimizer.GetRenderersNonAlloc(root, true);
 
-            if (!highlighted)
-            {
-                block.Clear();
-                renderer.SetPropertyBlock(block);
-                continue;
-            }
+         foreach (var renderer in renderers)
+         {
+             renderer.GetPropertyBlock(block);
 
-            if (renderer.sharedMaterial != null)
-            {
-                if (renderer.sharedMaterial.HasProperty(BaseColorId))
-                {
-                    block.SetColor(BaseColorId, selectedHighlightColor);
-                }
-                else if (renderer.sharedMaterial.HasProperty(ColorId))
-                {
-                    block.SetColor(ColorId, selectedHighlightColor);
-                }
+             if (renderer.sharedMaterial != null)
+             {
+                 if (renderer.sharedMaterial.HasProperty(BaseColorId))
+                 {
+                     block.SetColor(BaseColorId, selectedHighlightColor);
+                 }
+                 else if (renderer.sharedMaterial.HasProperty(ColorId))
+                 {
+                     block.SetColor(ColorId, selectedHighlightColor);
+                 }
 
-                if (renderer.sharedMaterial.HasProperty(EmissionColorId))
-                {
-                    block.SetColor(EmissionColorId, selectedHighlightColor * selectedEmissionIntensity);
-                }
-            }
+                 if (renderer.sharedMaterial.HasProperty(EmissionColorId))
+                 {
+                     block.SetColor(EmissionColorId, selectedHighlightColor * selectedEmissionIntensity);
+                 }
+             }
 
-            renderer.SetPropertyBlock(block);
+             renderer.SetPropertyBlock(block);
+         }
         }
-    }
 
         private static bool IsPointerOverUi(int pointerId, Vector2 screenPosition)
         {
@@ -1474,91 +1478,97 @@ namespace Runtime.Build
 
         private static void SetPreviewVisual(Transform root, Color color)
         {
-        if (root == null)
-        {
-            return;
-        }
+         if (root == null)
+         {
+             return;
+         }
 
-        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
-        for (int i = 0; i < renderers.Length; i++)
-        {
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
-            renderers[i].GetPropertyBlock(block);
-            if (renderers[i].sharedMaterial != null && renderers[i].sharedMaterial.HasProperty("_BaseColor"))
-            {
-                block.SetColor("_BaseColor", color);
-            }
-            renderers[i].SetPropertyBlock(block);
+         var block = new MaterialPropertyBlock();
+         var renderers = BuildPerformanceOptimizer.GetRenderersNonAlloc(root, true);
+
+         foreach (var renderer in renderers)
+         {
+             renderer.GetPropertyBlock(block);
+             
+             if (renderer.sharedMaterial != null && renderer.sharedMaterial.HasProperty("_BaseColor"))
+             {
+                 block.SetColor("_BaseColor", color);
+             }
+
+             renderer.SetPropertyBlock(block);
+         }
         }
-    }
 
         private void BuildGridVisual()
         {
-        ClearGridVisual();
+         ClearGridVisual();
 
-        if (!showGridOverlay)
-        {
-            return;
+         if (!showGridOverlay)
+         {
+             return;
+         }
+
+         bool usePrefabs = useGridCellPrefabs && (gridCellPrefabA != null || gridCellPrefabB != null);
+         if (!usePrefabs)
+         {
+             runtimeGridLightMaterial = CreateGridMaterial(gridLightColor);
+             runtimeGridDarkMaterial = CreateGridMaterial(gridDarkColor);
+         }
+
+         gridVisualRoot = new GameObject("BuildGridOverlay").transform;
+         gridVisualRoot.SetParent(buildRoot != null ? buildRoot : transform, false);
+         gridVisualRoot.gameObject.SetActive(gridVisible);
+
+         // Pre-allocate capacity to reduce resizes
+         int expectedCells = gridWidth * gridHeight;
+         
+         for (int y = 0; y < gridHeight; y++)
+         {
+             for (int x = 0; x < gridWidth; x++)
+             {
+                 bool useLight = ((x + y) & 1) == 0;
+                 GameObject sourcePrefab = useLight
+                     ? (gridCellPrefabA != null ? gridCellPrefabA : gridCellPrefabB)
+                     : (gridCellPrefabB != null ? gridCellPrefabB : gridCellPrefabA);
+
+                 GameObject tile;
+                 if (usePrefabs && sourcePrefab != null)
+                 {
+                     tile = Instantiate(sourcePrefab, gridVisualRoot);
+                     if (autoFitGridCellPrefabs)
+                     {
+                         FitGridCellPrefabToCellSize(tile.transform);
+                     }
+
+                     tile.transform.position = gridOrigin + new Vector3(x * cellSize, gridVisualYOffset, y * cellSize);
+                 }
+                 else
+                 {
+                     tile = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                     tile.transform.SetParent(gridVisualRoot, false);
+                     tile.transform.position = gridOrigin + new Vector3(x * cellSize, gridVisualYOffset, y * cellSize);
+                     tile.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                     tile.transform.localScale = new Vector3(cellSize, cellSize, 1f);
+
+                     Renderer renderer = tile.GetComponent<Renderer>();
+                     if (renderer != null)
+                     {
+                         renderer.sharedMaterial = useLight ? runtimeGridLightMaterial : runtimeGridDarkMaterial;
+                     }
+
+                     Collider collider = tile.GetComponent<Collider>();
+                     if (collider != null)
+                     {
+                         Destroy(collider);
+                     }
+                 }
+
+                 tile.name = $"Cell_{x}_{y}";
+             }
+         }
+
+         BuildGridLinesVisual();
         }
-
-        bool usePrefabs = useGridCellPrefabs && (gridCellPrefabA != null || gridCellPrefabB != null);
-        if (!usePrefabs)
-        {
-            runtimeGridLightMaterial = CreateGridMaterial(gridLightColor);
-            runtimeGridDarkMaterial = CreateGridMaterial(gridDarkColor);
-        }
-
-        gridVisualRoot = new GameObject("BuildGridOverlay").transform;
-        gridVisualRoot.SetParent(buildRoot != null ? buildRoot : transform, false);
-        gridVisualRoot.gameObject.SetActive(gridVisible);
-
-        for (int y = 0; y < gridHeight; y++)
-        {
-            for (int x = 0; x < gridWidth; x++)
-            {
-                bool useLight = ((x + y) & 1) == 0;
-                GameObject sourcePrefab = useLight
-                    ? (gridCellPrefabA != null ? gridCellPrefabA : gridCellPrefabB)
-                    : (gridCellPrefabB != null ? gridCellPrefabB : gridCellPrefabA);
-
-                GameObject tile;
-                if (usePrefabs && sourcePrefab != null)
-                {
-                    tile = Instantiate(sourcePrefab, gridVisualRoot);
-                    if (autoFitGridCellPrefabs)
-                    {
-                        FitGridCellPrefabToCellSize(tile.transform);
-                    }
-
-                    tile.transform.position = gridOrigin + new Vector3(x * cellSize, gridVisualYOffset, y * cellSize);
-                }
-                else
-                {
-                    tile = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                    tile.transform.SetParent(gridVisualRoot, false);
-                    tile.transform.position = gridOrigin + new Vector3(x * cellSize, gridVisualYOffset, y * cellSize);
-                    tile.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                    tile.transform.localScale = new Vector3(cellSize, cellSize, 1f);
-
-                    Renderer renderer = tile.GetComponent<Renderer>();
-                    if (renderer != null)
-                    {
-                        renderer.sharedMaterial = useLight ? runtimeGridLightMaterial : runtimeGridDarkMaterial;
-                    }
-
-                    Collider collider = tile.GetComponent<Collider>();
-                    if (collider != null)
-                    {
-                        Destroy(collider);
-                    }
-                }
-
-                tile.name = $"Cell_{x}_{y}";
-            }
-        }
-
-        BuildGridLinesVisual();
-    }
 
         private void BuildGridLinesVisual()
         {

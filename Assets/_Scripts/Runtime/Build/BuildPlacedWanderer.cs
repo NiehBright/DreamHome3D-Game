@@ -197,21 +197,29 @@ namespace _Scripts.Runtime.Build
 
         private bool TryRestoreSavedPosition()
         {
-            if (!persistPosition || characterRoot == null || string.IsNullOrWhiteSpace(positionSaveKey))
-            {
-                return false;
-            }
+             if (!persistPosition || characterRoot == null || string.IsNullOrWhiteSpace(positionSaveKey))
+             {
+                 return false;
+             }
 
-            if (!PlayerPrefs.HasKey(positionSaveKey + ".x"))
-            {
-                return false;
-            }
+             if (!PlayerPrefs.HasKey(positionSaveKey + ".x"))
+             {
+                 return false;
+             }
 
-            float x = PlayerPrefs.GetFloat(positionSaveKey + ".x", characterRoot.position.x);
-            float y = PlayerPrefs.GetFloat(positionSaveKey + ".y", characterRoot.position.y);
-            float z = PlayerPrefs.GetFloat(positionSaveKey + ".z", characterRoot.position.z);
-            characterRoot.position = new Vector3(x, y, z);
-            return true;
+             try
+             {
+                 float x = PlayerPrefs.GetFloat(positionSaveKey + ".x", characterRoot.position.x);
+                 float y = PlayerPrefs.GetFloat(positionSaveKey + ".y", characterRoot.position.y);
+                 float z = PlayerPrefs.GetFloat(positionSaveKey + ".z", characterRoot.position.z);
+                 characterRoot.position = new Vector3(x, y, z);
+                 return true;
+             }
+             catch (System.Exception ex)
+             {
+                 Debug.LogWarning($"BuildPlacedWanderer: Failed to restore position. {ex.Message}");
+                 return false;
+             }
         }
 
         private void SnapToRandomPositionInBounds()
@@ -245,16 +253,23 @@ namespace _Scripts.Runtime.Build
 
         private void SavePosition()
         {
-            if (!persistPosition || characterRoot == null || string.IsNullOrWhiteSpace(positionSaveKey))
-            {
-                return;
-            }
+             if (!persistPosition || characterRoot == null || string.IsNullOrWhiteSpace(positionSaveKey))
+             {
+                 return;
+             }
 
-            Vector3 pos = characterRoot.position;
-            PlayerPrefs.SetFloat(positionSaveKey + ".x", pos.x);
-            PlayerPrefs.SetFloat(positionSaveKey + ".y", pos.y);
-            PlayerPrefs.SetFloat(positionSaveKey + ".z", pos.z);
-            PlayerPrefs.Save();
+             try
+             {
+                 Vector3 pos = characterRoot.position;
+                 PlayerPrefs.SetFloat(positionSaveKey + ".x", pos.x);
+                 PlayerPrefs.SetFloat(positionSaveKey + ".y", pos.y);
+                 PlayerPrefs.SetFloat(positionSaveKey + ".z", pos.z);
+                 PlayerPrefs.Save();
+             }
+             catch (System.Exception ex)
+             {
+                 Debug.LogWarning($"BuildPlacedWanderer: Failed to save position. {ex.Message}");
+             }
         }
 
         private void PickNewTarget(bool immediate)

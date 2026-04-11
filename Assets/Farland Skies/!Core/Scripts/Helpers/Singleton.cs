@@ -14,7 +14,7 @@ namespace Borodar.FarlandSkies.Core.Helpers
             {
                 if (_instance == null)
                 {
-                    var instances = FindObjectsOfType<T>();
+                    var instances = FindObjectsByType<T>(FindObjectsSortMode.None);
 
                     if (instances.Length == 1)
                     {

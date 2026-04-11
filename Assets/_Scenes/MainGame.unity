@@ -5539,7 +5539,6 @@ MonoBehaviour:
   faceCameraOnSpawn: 1
   faceMoveDirection: 1
   floorScale: 0.45
-  wallScale: 1
   goalScale: 0.5
   boxScale: 2
   playerScale: 1
@@ -5771,7 +5770,6 @@ MonoBehaviour:
   swipeInputReader: {fileID: 826976558}
   createDedicatedSwipeReaderIfMissing: 1
   manualLevelListData: {fileID: 11400000, guid: 298d16fcab43c154db66645d24679475, type: 2}
-  useManualLevelListOrder: 1
   levelsResourcePath: PuzzlePaint/Levels
   autoLoadLevelsFromResources: 0
   cellSize: 1

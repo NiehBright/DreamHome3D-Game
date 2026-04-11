@@ -12,8 +12,6 @@ namespace Runtime.Build
         [Header("Auto Setup")]
         [SerializeField] private bool autoSetupOnStart = false;
 
-        [Header("Debug")]
-        [SerializeField] private bool debugLogging = true;
 
         private FurnitureShopUI shopUI;
         private FurnitureCatalogData catalog;

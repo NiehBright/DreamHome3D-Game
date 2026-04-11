@@ -39,7 +39,6 @@ public class GameController : MonoBehaviour
 
     [Header("Object Scale")]
     [SerializeField] private float floorScale = 1f;
-    [SerializeField] private float wallScale = 1f;
     [SerializeField] private float goalScale = 1f;
     [SerializeField] private float boxScale = 1f;
     [SerializeField] private float playerScale = 1f;

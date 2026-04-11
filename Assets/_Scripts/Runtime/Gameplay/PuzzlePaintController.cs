@@ -26,7 +26,6 @@ namespace _Scripts.Runtime.Gameplay
 
         [Header("Level Loading")]
         [SerializeField] private PuzzlePaintLevelListData manualLevelListData;
-        [SerializeField] private bool useManualLevelListOrder = true;
         [SerializeField] private string levelsResourcePath = DefaultLevelsResourcePath;
         [SerializeField] private bool autoLoadLevelsFromResources = true;
 
