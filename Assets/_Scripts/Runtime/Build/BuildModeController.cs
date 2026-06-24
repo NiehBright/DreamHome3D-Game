@@ -243,34 +243,51 @@ namespace Runtime.Build
 
         private void Update()
         {
-        if (!isBuildActive)
-        {
-            return;
-        }
+            if (!isBuildActive)
+            {
+                return;
+            }
 
-        if (Keyboard.current != null && Keyboard.current.deleteKey.wasPressedThisFrame)
-        {
-            ToggleDeleteMode();
-        }
+            if (Keyboard.current != null && Keyboard.current.deleteKey.wasPressedThisFrame)
+            {
+                ToggleDeleteMode();
+            }
 
-        if (TryHandleCameraZoom())
-        {
-            // Zoom gesture should not also place/select furniture in the same frame.
-            pointerIsDown = false;
-            pointerMovedAsDrag = false;
-            pointerBlockedByUi = false;
-            activePointerId = -1;
-            return;
-        }
+            if (TryHandleCameraZoom())
+            {
+                // Zoom gesture should not also place/select furniture in the same frame.
+                pointerIsDown = false;
+                pointerMovedAsDrag = false;
+                pointerBlockedByUi = false;
+                activePointerId = -1;
+                return;
+            }
 
-        if (!TryGetPointerState(out Vector2 pointerScreenPosition, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed, out int pointerId))
-        {
-            return;
-        }
+            if (!TryGetPointerState(out Vector2 pointerScreenPosition, out bool pressedThisFrame, out bool releasedThisFrame, out bool isPressed, out int pointerId))
+            {
+                return;
+            }
 
-        if (pressedThisFrame)
-        {
-            if (pointerIsDown)
+            if (pressedThisFrame)
+            {
+                if (pointerIsDown)
+                {
+                    pointerIsDown = false;
+                    pointerMovedAsDrag = false;
+                    pointerBlockedByUi = false;
+                    activePointerId = -1;
+                }
+
+                pointerIsDown = true;
+                pointerMovedAsDrag = false;
+                activePointerId = pointerId;
+                pointerDownScreenPosition = pointerScreenPosition;
+                pointerLastScreenPosition = pointerScreenPosition;
+                pointerDownTime = Time.unscaledTime;
+                pointerBlockedByUi = IsPointerOverUi(activePointerId, pointerScreenPosition);
+            }
+
+            if (pointerIsDown && !isPressed && !releasedThisFrame)
             {
                 pointerIsDown = false;
                 pointerMovedAsDrag = false;
@@ -278,140 +295,137 @@ namespace Runtime.Build
                 activePointerId = -1;
             }
 
-            pointerIsDown = true;
-            pointerMovedAsDrag = false;
-            activePointerId = pointerId;
-            pointerDownScreenPosition = pointerScreenPosition;
-            pointerLastScreenPosition = pointerScreenPosition;
-            pointerDownTime = Time.unscaledTime;
-            pointerBlockedByUi = IsPointerOverUi(activePointerId, pointerScreenPosition);
-        }
-
-        if (pointerIsDown && !isPressed && !releasedThisFrame)
-        {
-            pointerIsDown = false;
-            pointerMovedAsDrag = false;
-            pointerBlockedByUi = false;
-            activePointerId = -1;
-        }
-
-        if (pointerIsDown && isPressed)
-        {
-            if (IsPointerOverUi(activePointerId, pointerScreenPosition))
+            if (pointerIsDown && isPressed)
             {
-                pointerBlockedByUi = true;
+                if (IsPointerOverUi(activePointerId, pointerScreenPosition))
+                {
+                    pointerBlockedByUi = true;
+                }
+
+                if (pointerBlockedByUi)
+                {
+                    pointerLastScreenPosition = pointerScreenPosition;
+                    return;
+                }
+
+                if (!pointerMovedAsDrag)
+                {
+                    float tapMoveThresholdSqr = tapMaxMovementPixels * tapMaxMovementPixels;
+                    pointerMovedAsDrag = (pointerScreenPosition - pointerDownScreenPosition).sqrMagnitude > tapMoveThresholdSqr;
+                }
+
+                if (activePreview != null)
+                {
+                    // Drag the preview instead of panning the camera
+                    UpdatePreviewPosition(pointerScreenPosition);
+                }
+                else if (enableCameraPan)
+                {
+                    float panThreshold = Mathf.Max(tapMaxMovementPixels, cameraPanStartPixels);
+                    float panThresholdSqr = panThreshold * panThreshold;
+                    float dragDistanceSqr = (pointerScreenPosition - pointerDownScreenPosition).sqrMagnitude;
+
+                    if (dragDistanceSqr > panThresholdSqr)
+                    {
+                        PanCamera(pointerLastScreenPosition, pointerScreenPosition);
+                    }
+                }
+
+                pointerLastScreenPosition = pointerScreenPosition;
             }
 
-            if (pointerBlockedByUi)
+            // On PC/Hover, update preview position even if pointer is not down
+            if (activePreview != null && !pointerIsDown && !IsPointerOverUi(pointerId, pointerScreenPosition))
             {
-                pointerLastScreenPosition = pointerScreenPosition;
+                UpdatePreviewPosition(pointerScreenPosition);
+            }
+
+            if (!releasedThisFrame)
+            {
                 return;
             }
 
-            if (!pointerMovedAsDrag)
-            {
-                float tapMoveThresholdSqr = tapMaxMovementPixels * tapMaxMovementPixels;
-                pointerMovedAsDrag = (pointerScreenPosition - pointerDownScreenPosition).sqrMagnitude > tapMoveThresholdSqr;
-            }
+            bool isTap = pointerIsDown
+                && !pointerMovedAsDrag
+                && Time.unscaledTime - pointerDownTime <= tapMaxDurationSeconds;
 
-            if (enableCameraPan)
-            {
-                float panThreshold = Mathf.Max(tapMaxMovementPixels, cameraPanStartPixels);
-                float panThresholdSqr = panThreshold * panThreshold;
-                float dragDistanceSqr = (pointerScreenPosition - pointerDownScreenPosition).sqrMagnitude;
+            pointerIsDown = false;
+            bool blockedByUiThisGesture = pointerBlockedByUi;
+            pointerBlockedByUi = false;
+            activePointerId = -1;
 
-                if (dragDistanceSqr > panThresholdSqr)
+            if (!isTap)
+            {
+                // Drag-to-place: commit preview on release
+                if (activePreview != null && !blockedByUiThisGesture)
                 {
-                    PanCamera(pointerLastScreenPosition, pointerScreenPosition);
+                    TryCommitPreview();
                 }
+                return;
             }
 
-            pointerLastScreenPosition = pointerScreenPosition;
+            if (blockedByUiThisGesture || IsPointerOverUi(pointerId, pointerScreenPosition))
+            {
+                return;
+            }
+
+            HandleTap(pointerScreenPosition);
         }
-
-        if (!releasedThisFrame)
-        {
-            return;
-        }
-
-        bool isTap = pointerIsDown
-            && !pointerMovedAsDrag
-            && Time.unscaledTime - pointerDownTime <= tapMaxDurationSeconds;
-
-        pointerIsDown = false;
-        bool blockedByUiThisGesture = pointerBlockedByUi;
-        pointerBlockedByUi = false;
-        activePointerId = -1;
-
-        if (!isTap)
-        {
-            return;
-        }
-
-        if (blockedByUiThisGesture || IsPointerOverUi(pointerId, pointerScreenPosition))
-        {
-            return;
-        }
-
-        HandleTap(pointerScreenPosition);
-    }
 
         private void HandleTap(Vector2 pointerScreenPosition)
         {
-        if (isDeleteMode)
-        {
-            if (TryGetPlacementAtPointer(pointerScreenPosition, out string deletePlacementId))
+            if (isDeleteMode)
             {
-                RemovePlacement(deletePlacementId, true);
-                SaveIfNeeded();
+                if (TryGetPlacementAtPointer(pointerScreenPosition, out string deletePlacementId))
+                {
+                    RemovePlacement(deletePlacementId, true);
+                    SaveIfNeeded();
+                }
+                return;
             }
 
-            if (TryGetGridCell(pointerScreenPosition, out Vector2Int deleteCell)
-                && gridState.TryGetPlacementAtCell(deleteCell, out string deleteCellPlacementId))
+            if (!TryGetGridCell(pointerScreenPosition, out Vector2Int cell))
             {
-                RemovePlacement(deleteCellPlacementId, true);
-                SaveIfNeeded();
+                return;
             }
 
-            return;
-        }
-
-        if (!TryGetGridCell(pointerScreenPosition, out Vector2Int cell))
-        {
-            return;
-        }
-
-        if (activePreview != null)
-        {
-            activePreview.origin = cell;
-            ApplyPreviewTransform();
-            TryCommitPreview();
-            return;
-        }
-
-        if (gridState.TryGetPlacementAtCell(cell, out string placementId))
-        {
-            if (selectedPlacementId == placementId)
+            if (activePreview != null)
             {
-                BeginMovePlacement(placementId);
-            }
-            else
-            {
-                SetSelectedPlacement(placementId);
-                selectedItem = null;
+                // Align selection/tap with center of item
+                Vector2Int rotatedSize = BuildGridState.RotateSize(activePreview.item.Size, activePreview.rotationQuarterTurns);
+                cell.x -= (rotatedSize.x - 1) / 2;
+                cell.y -= (rotatedSize.y - 1) / 2;
+                cell = ClampOriginToGrid(cell, rotatedSize);
+
+                activePreview.origin = cell;
+                ApplyPreviewTransform();
+                TryCommitPreview();
+                return;
             }
 
-            return;
-        }
+            if (gridState.TryGetPlacementAtCell(cell, out string placementId))
+            {
+                if (selectedPlacementId == placementId)
+                {
+                    BeginMovePlacement(placementId);
+                }
+                else
+                {
+                    SetSelectedPlacement(placementId);
+                    selectedItem = null;
+                }
 
-        SetSelectedPlacement(null);
+                return;
+            }
 
-        if (selectedItem != null)
-        {
-            BeginNewPlacement(selectedItem, cell);
-            TryCommitPreview();
+            SetSelectedPlacement(null);
+
+            if (selectedItem != null)
+            {
+                BeginNewPlacement(selectedItem, cell);
+                TryCommitPreview();
+            }
         }
-    }
 
         public void SetBuildActive(bool active)
         {
@@ -446,10 +460,24 @@ namespace Runtime.Build
 
         public void SelectFurniture(FurnitureItemData item)
         {
-        selectedItem = item;
-        SetSelectedPlacement(null);
-        isDeleteMode = false;
-    }
+            selectedItem = item;
+            SetSelectedPlacement(null);
+            isDeleteMode = false;
+
+            if (item != null)
+            {
+                Vector2Int startCell = new Vector2Int(gridWidth / 2, gridHeight / 2);
+                if (UnityEngine.InputSystem.Pointer.current != null)
+                {
+                    Vector2 pointerPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
+                    if (TryGetGridCell(pointerPos, out Vector2Int cell))
+                    {
+                        startCell = cell;
+                    }
+                }
+                BeginNewPlacement(item, startCell);
+            }
+        }
 
         public void RotatePreview()
         {
@@ -483,22 +511,23 @@ namespace Runtime.Build
 
         public void CancelPlacement()
         {
+            if (activePreview == null)
+            {
+                selectedItem = null;
+                return;
+            }
 
-        if (activePreview == null)
-        {
-            return;
+            if (activePreview.editingPlacementId != null)
+            {
+                var placement = runtimePlacements[activePreview.editingPlacementId];
+                gridState.AddPlacement(placement.data, placement.item);
+                placement.view.gameObject.SetActive(true);
+            }
+
+            Destroy(activePreview.view.gameObject);
+            activePreview = null;
+            selectedItem = null;
         }
-
-        if (activePreview.editingPlacementId != null)
-        {
-            var placement = runtimePlacements[activePreview.editingPlacementId];
-            gridState.AddPlacement(placement.data, placement.item);
-            placement.view.gameObject.SetActive(true);
-        }
-
-        Destroy(activePreview.view.gameObject);
-        activePreview = null;
-    }
 
         public void DeleteSelected()
         {
@@ -831,35 +860,44 @@ namespace Runtime.Build
     }
 
         private void TryCommitPreview()
-    {
-        if (activePreview == null || !activePreview.isValid)
         {
-            if (activePreview != null && activePreview.isNewPurchase)
+            if (activePreview == null || !activePreview.isValid)
             {
-                CancelPlacement();
+                return;
             }
-            return;
-        }
 
-        if (activePreview.isNewPurchase && wallet != null && !wallet.TrySpend(activePreview.item.Price))
-        {
-            Debug.Log("Not enough coins.");
-            return;
-        }
+            if (activePreview.isNewPurchase && wallet != null && !wallet.TrySpend(activePreview.item.Price))
+            {
+                Debug.Log("Not enough coins.");
+                return;
+            }
 
-        if (!string.IsNullOrEmpty(activePreview.editingPlacementId))
-        {
-            UpdateMovedPlacement(activePreview.editingPlacementId);
-        }
-        else
-        {
-            CreatePlacementFromPreview();
-        }
+            if (!string.IsNullOrEmpty(activePreview.editingPlacementId))
+            {
+                UpdateMovedPlacement(activePreview.editingPlacementId);
+                Destroy(activePreview.view.gameObject);
+                activePreview = null;
+            }
+            else
+            {
+                FurnitureItemData itemPlaced = activePreview.item;
+                Vector2Int lastOrigin = activePreview.origin;
+                CreatePlacementFromPreview();
+                Destroy(activePreview.view.gameObject);
+                activePreview = null;
 
-        Destroy(activePreview.view.gameObject);
-        activePreview = null;
-        SaveIfNeeded();
-    }
+                if (selectedItem != null && wallet != null && wallet.Coins >= selectedItem.Price)
+                {
+                    BeginNewPlacement(selectedItem, lastOrigin);
+                }
+                else
+                {
+                    selectedItem = null;
+                }
+            }
+
+            SaveIfNeeded();
+        }
 
         private void CreatePlacementFromPreview()
         {
@@ -904,14 +942,27 @@ namespace Runtime.Build
 
         private void UpdatePreviewPosition(Vector2 pointerScreenPosition)
         {
-        if (!TryGetGridCell(pointerScreenPosition, out Vector2Int cell))
-        {
-            return;
-        }
+            if (activePreview == null || activePreview.item == null)
+            {
+                return;
+            }
 
-        activePreview.origin = cell;
-        ApplyPreviewTransform();
-    }
+            if (!TryGetGridCell(pointerScreenPosition, out Vector2Int cell))
+            {
+                return;
+            }
+
+            Vector2Int rotatedSize = BuildGridState.RotateSize(activePreview.item.Size, activePreview.rotationQuarterTurns);
+            cell.x -= (rotatedSize.x - 1) / 2;
+            cell.y -= (rotatedSize.y - 1) / 2;
+            cell = ClampOriginToGrid(cell, rotatedSize);
+
+            if (activePreview.origin != cell)
+            {
+                activePreview.origin = cell;
+                ApplyPreviewTransform();
+            }
+        }
 
         private void ApplyPreviewTransform()
         {
